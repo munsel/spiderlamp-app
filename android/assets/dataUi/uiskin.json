@@ -10,15 +10,20 @@ com.badlogic.gdx.scenes.scene2d.ui.Skin$TintedDrawable: {
 },
 com.badlogic.gdx.scenes.scene2d.ui.Button$ButtonStyle: {
   color-pick: {},
-  bt-search: { down: bt_down, up: bt_up},
-  pos-more: { down: more_down, up: more_up},
-  pos-less: { down: less_down, up: less_up},
+  bt-search: { down: bt_up, up: bt_up},
+  adjust: {down: coordinates, up: coordinates},
+  settings: {down: settings, up: settings},
+  instructions: {down: instructions, up: instructions},
+  off: {down: off, up: off},
+  add: {down: add, up: add},
+  send: {down: send, up:send},
 	default: { down: default-round-down, up: default-round },
 	toggle: { down: default-round-down, checked: default-round-down, up: default-round }
 },
 com.badlogic.gdx.scenes.scene2d.ui.TextButton$TextButtonStyle: {
 	default: { down: default-round-down, up: default-round, font: droid-mono-36, fontColor: white },
     device-scan: { font: droid-mono-36 },
+  header: { font: droid-mono-72, fontColor: black},
   device: { font: droid-mono-36},
 	toggle: { down: default-round-down, up: default-round, checked: default-round-down, font: droid-mono-36, fontColor: white, downFontColor: red }
 },
@@ -45,12 +50,14 @@ com.badlogic.gdx.scenes.scene2d.ui.ProgressBar$ProgressBarStyle: {
 	default-vertical: { background: default-slider, knob: default-round-large }
 },
 com.badlogic.gdx.scenes.scene2d.ui.Slider$SliderStyle: {
+  intensity: {background: slider-black, knob: knob-black},
+  height: { background: slider-white, knob: knob-white},
 	default-horizontal: { background: default-slider, knob: default-slider-knob },
 	default-vertical: { background: default-slider, knob: default-round-large }
 },
 com.badlogic.gdx.scenes.scene2d.ui.Label$LabelStyle: {
-  colorpick-caption: { font: droid-mono-72, fontColor: white},
-  big: { font: droid-mono-36},
+  big: { font: droid-mono-72, fontColor: black},
+  pos: { font: droid-mono-72, fontColor: white},
   instruction-list: { font: droid-mono-24},
 	default: { font: droid-mono-36, fontColor: white }
 },
@@ -58,6 +65,7 @@ com.badlogic.gdx.scenes.scene2d.ui.TextField$TextFieldStyle: {
 	default: { selection: selection, background: textfield, font: droid-mono-36, fontColor: white, cursor: cursor }
 },
 com.badlogic.gdx.scenes.scene2d.ui.CheckBox$CheckBoxStyle: {
+  adjust: {checkboxOn: checkbox-checked, checkboxOff: checkbox-unchecked, font: droid-mono-72, fontColor: black},
 	default: { checkboxOn: check-on, checkboxOff: check-off, font: droid-mono-36, fontColor: white }
 },
 com.badlogic.gdx.scenes.scene2d.ui.List$ListStyle: {
