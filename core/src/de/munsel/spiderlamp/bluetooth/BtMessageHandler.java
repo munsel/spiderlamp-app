@@ -7,7 +7,6 @@ package de.munsel.spiderlamp.bluetooth;
  * Created by munsel on 16.10.15.
  */
 public interface BtMessageHandler {
-
     void setState(int state);
     void receiveMessage(String msg);
     void finishedDiscovery();
@@ -16,5 +15,4 @@ public interface BtMessageHandler {
     void connect(String deviceName);
     void failedToConnect();
     void lostConnection();
-    void write(byte[] buffer);
 }

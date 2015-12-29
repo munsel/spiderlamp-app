@@ -5,106 +5,134 @@ filter: Nearest,Nearest
 repeat: none
 xy-picker
   rotate: false
-  xy: 1, 92
+  xy: 1, 88
   size: 397, 400
   orig: 397, 400
   offset: 0, 0
   index: -1
+topview-dimen
+  rotate: false
+  xy: 400, 240
+  size: 246, 248
+  orig: 246, 248
+  offset: 0, 0
+  index: -1
+sideview-dimen
+  rotate: false
+  xy: 648, 260
+  size: 228, 228
+  orig: 228, 228
+  offset: 0, 0
+  index: -1
+sidepicker-label
+  rotate: false
+  xy: 400, 126
+  size: 112, 112
+  orig: 112, 112
+  offset: 0, 0
+  index: -1
 instructions
   rotate: false
-  xy: 1, 5
+  xy: 1, 1
   size: 85, 85
   orig: 85, 85
   offset: 0, 0
   index: -1
 checkbox-unchecked
   rotate: false
-  xy: 400, 407
+  xy: 878, 403
   size: 85, 85
   orig: 85, 85
   offset: 0, 0
   index: -1
 checkbox-checked
   rotate: false
-  xy: 88, 5
+  xy: 514, 153
   size: 85, 85
   orig: 85, 85
   offset: 0, 0
   index: -1
 settings
   rotate: false
-  xy: 400, 320
+  xy: 88, 1
   size: 85, 85
   orig: 85, 85
   offset: 0, 0
   index: -1
 coordinates
   rotate: false
-  xy: 175, 5
+  xy: 878, 316
   size: 85, 85
   orig: 85, 85
   offset: 0, 0
   index: -1
 bt_up
   rotate: false
-  xy: 400, 233
+  xy: 175, 1
   size: 85, 85
   orig: 85, 85
   offset: 0, 0
   index: -1
 off
   rotate: false
-  xy: 262, 5
+  xy: 262, 1
   size: 85, 85
   orig: 85, 85
   offset: 0, 0
   index: -1
 send
   rotate: false
-  xy: 400, 176
+  xy: 878, 259
   size: 82, 55
   orig: 82, 55
   offset: 0, 0
   index: -1
 slider-white
   rotate: false
-  xy: 487, 376
+  xy: 965, 372
   size: 2, 116
   orig: 2, 116
   offset: 0, 0
   index: -1
 knob-white
   rotate: false
-  xy: 349, 18
+  xy: 349, 14
   size: 46, 72
   orig: 46, 72
   offset: 0, 0
   index: -1
 xy-cursor
   rotate: false
-  xy: 400, 118
+  xy: 601, 182
   size: 56, 56
   orig: 56, 56
   offset: 0, 0
   index: -1
 slider-black
   rotate: false
-  xy: 1, 1
+  xy: 400, 122
   size: 95, 2
   orig: 95, 2
   offset: 0, 0
   index: -1
-knob-black
+sidepicker-knob
   rotate: false
-  xy: 400, 70
-  size: 59, 46
-  orig: 59, 46
+  xy: 969, 442
+  size: 46, 46
+  orig: 46, 46
   offset: 0, 0
   index: -1
 add
   rotate: false
-  xy: 397, 13
+  xy: 659, 203
   size: 57, 55
   orig: 57, 55
+  offset: 0, 0
+  index: -1
+knob-black
+  rotate: false
+  xy: 718, 212
+  size: 59, 46
+  orig: 59, 46
   offset: 0, 0
   index: -1

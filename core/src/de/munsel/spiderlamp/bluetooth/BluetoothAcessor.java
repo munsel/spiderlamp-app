@@ -16,7 +16,7 @@ public interface BluetoothAcessor {
 
     void dispose();
     void init();
-    void selectedDevice(String adress);
+    void selectDevice(String adress);
     void doDiscovery();
     boolean isConnected();
     void writeMessage(byte[] msg);

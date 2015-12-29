@@ -1,6 +1,7 @@
 package de.munsel.spiderlamp;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.files.FileHandle;
@@ -9,7 +10,6 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
@@ -23,6 +23,8 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import de.munsel.spiderlamp.actors.ColorPickButton;
+import de.munsel.spiderlamp.actors.CustomTextField;
+import de.munsel.spiderlamp.actors.SidePicker;
 import de.munsel.spiderlamp.actors.XyChooser;
 import de.munsel.spiderlamp.bluetooth.BluetoothAcessor;
 import de.munsel.spiderlamp.bluetooth.BtMessageHandler;
@@ -42,7 +44,7 @@ public class ControlPanelScreen implements Screen {
 
     private BluetoothAcessor btAccesor;
     private int state;
-    private Array<String> messages;
+    private Array<String> instructions;
 
     // UI and font settings
     private Skin skin;
@@ -97,8 +99,10 @@ public class ControlPanelScreen implements Screen {
     private Stage instructionListStage;
     private Label instructionListLabel;
     private TextButton sendInstructionsButton;
+    private TextButton abortSendingInstructionsButton;
 
     private Stage settingsStage;
+    private SidePicker sidePicker;
     private Image mountSizesImage;
     private TextField mountSizeTextField;
     private TextButton setZeroButton;
@@ -141,7 +145,7 @@ public class ControlPanelScreen implements Screen {
         pickedPosition = new Vector2();
         devices = new Array<TextButton>();
 
-        messages = new Array<String>();
+        instructions = new Array<String>();
 
         // Font initialization
         initializeFont();
@@ -308,6 +312,7 @@ public class ControlPanelScreen implements Screen {
         instructionsButtonTab.addListener(new ClickListener(){
             @Override
             public void clicked(InputEvent event, float x, float y) {
+                updateInstructionList();
                 setStage(instructionListStage);
             }
         });
@@ -412,15 +417,36 @@ public class ControlPanelScreen implements Screen {
                         + ", y: " + yPosLabel.getText().toString()
                         + ", z: " + zPosLabel.getText().toString();
                 //btAccesor.writeMessage(message.getBytes());
-                String newLog = instructionListLabel.getText().toString()+"\n"+message;
-                instructionListLabel.setText(newLog);
-
+                instructions.add(message);
                 return true;
             }
         });
 
         sendButton = new Button(skin, "send");
         sendButton.setPosition(V_WIDTH*Constants.SEND_BUTTON_X,V_HEIGHT*Constants.SEND_BUTTON_Y);
+        sendButton.addListener(new InputListener(){
+
+            @Override
+            public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+                //String message = "r"+(int)(pickedColor.r*255);
+                byte blue = (byte)((int)(pickedColor.b*255)&0xFF);
+                byte green = (byte)((int)(pickedColor.g*255)&0xFF);
+                byte red = (byte)((int)(pickedColor.r*255)&0xFF);
+                byte[] bytesBlue = {'b', blue,0,'\n'};
+                byte[] bytesGreen = {'g', green,0,'\n'};
+                byte[] bytesRed = {'r', red,0,'\n'};
+                Gdx.app.log(TAG, Integer.toString( blue) );
+                btAccesor.writeMessage(bytesBlue);
+                Gdx.app.log(TAG, Integer.toString( green) );
+                btAccesor.writeMessage(bytesGreen);
+                Gdx.app.log(TAG, Integer.toString( red) );
+                btAccesor.writeMessage(bytesRed);
+
+                byte[] bytesUpdate = {'u', 0,0,'\n'};
+                btAccesor.writeMessage(bytesUpdate);
+                return true;
+            }
+        });
 
         colorPickButton = new ColorPickButton();
         colorPickButton.setPosition(Constants.COLORPICK_X*V_WIDTH,
@@ -480,18 +506,160 @@ public class ControlPanelScreen implements Screen {
     private void populateInstructionListStage(){
         instructionListLabel = new Label("",skin,"instruction-list");
         instructionListLabel.setAlignment(Align.topLeft);
-        instructionListLabel.setPosition(V_WIDTH*Constants.INSTRUCTION_LABEL_X,
-                V_HEIGHT*Constants.INSTRUCTION_LABEL_Y);
-        //instructionListLabel.setHeight(Constants.INSTRUCTION_LABEL_HEIGHT*V_HEIGHT);
-        //instructionListLabel.setWidth(Constants.INSTRUCTION_LABEL_WIDTH*V_WIDTH);
-        instructionListLabel.layout();
+       // instructionListLabel.layout();
+
+        ScrollPane scrollPane = new ScrollPane(instructionListLabel);
+        scrollPane.setPosition(V_WIDTH * Constants.INSTRUCTION_LABEL_X,
+                V_HEIGHT * Constants.INSTRUCTION_LABEL_Y);
+        scrollPane.setHeight(Constants.INSTRUCTION_LABEL_HEIGHT * V_HEIGHT);
+        scrollPane.setWidth(Constants.INSTRUCTION_LABEL_WIDTH * V_WIDTH);
+
+        sendInstructionsButton = new TextButton("start", skin, "header");
+        sendInstructionsButton.setPosition(V_WIDTH*Constants.INSTRUCTION_BUTTON_X,
+                V_HEIGHT*Constants.INSTRUCTION_BUTTON_Y);
+        sendInstructionsButton.addListener(new ClickListener(){
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                sendInstructionsButton.setVisible(false);
+                abortSendingInstructionsButton.setVisible(true);
+            }
+        });
+
+        abortSendingInstructionsButton = new TextButton("abort", skin, "header");
+        abortSendingInstructionsButton.setPosition(V_WIDTH*Constants.INSTRUCTION_BUTTON_X,
+                V_HEIGHT*Constants.INSTRUCTION_BUTTON_Y);
+        abortSendingInstructionsButton.setVisible(false);
+        abortSendingInstructionsButton.addListener(new ClickListener(){
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                abortSendingInstructionsButton.setVisible(false);
+                sendInstructionsButton.setVisible(true);
+            }
+        });
 
 
-        instructionListStage.addActor(instructionListLabel);
+        instructionListStage.addActor(scrollPane);
+        instructionListStage.addActor(sendInstructionsButton);
+        instructionListStage.addActor(abortSendingInstructionsButton);
 
     }
 
     private void populateSettingsStage(){
+        Table table = new Table();
+        float textFieldWidth = 70;
+
+
+
+
+        Label calibraitonHeadline = new Label("calibration", skin, "pos");
+        calibraitonHeadline.setPosition((V_WIDTH-calibraitonHeadline.getWidth())/2,V_HEIGHT*.7f);
+        //settingsStage.addActor(calibraitonHeadline);
+
+        Label calibrationInstructions = new Label("Set actual \nrope lengths,\n" +
+                "a and h \nin cm.",skin);
+        calibrationInstructions.setPosition(V_WIDTH*.58f, V_HEIGHT*.58f);
+        settingsStage.addActor(calibrationInstructions);
+
+        Image topViewImage = new Image(skin.getRegion("topview-dimen"));
+        topViewImage.setPosition(V_WIDTH*.1f, V_HEIGHT*.22f);
+        settingsStage.addActor(topViewImage);
+
+        Image sideViewImage = new Image(skin.getRegion("sideview-dimen"));
+        sideViewImage.setPosition(V_WIDTH*.55f,V_HEIGHT*.25f);
+        settingsStage.addActor(sideViewImage);
+
+
+        Label heightLabel = new Label("h=    cm", skin);
+        heightLabel.setPosition(V_WIDTH*.63f, V_HEIGHT*.46f);
+        settingsStage.addActor(heightLabel);
+        TextField heigthTextField = new CustomTextField("123", skin);
+        heigthTextField.setTextFieldFilter(new TextField.TextFieldFilter.DigitsOnlyFilter());
+        heigthTextField.setPosition(V_WIDTH*.7f, V_HEIGHT*.46f);
+        heigthTextField.setWidth(textFieldWidth);
+        settingsStage.addActor(heigthTextField);
+
+        Label distanceLabel = new Label("a=    cm", skin);
+        distanceLabel.setPosition(V_WIDTH * .63f, V_HEIGHT * .51f);
+        settingsStage.addActor(distanceLabel);
+        TextField distanceTextField = new CustomTextField("123", skin);
+        distanceTextField.setPosition(V_WIDTH * .7f, V_HEIGHT * .51f);
+        distanceTextField.setWidth(textFieldWidth);
+        settingsStage.addActor(distanceTextField);
+
+
+
+        sidePicker = new SidePicker(skin);
+
+        settingsStage.addActor(sidePicker);
+        /**
+         * four textFields for numeric input of the actual
+         * measured ropelengths
+         */
+
+        final TextField leftDownTextField = new CustomTextField("123",skin);
+        leftDownTextField.setPosition(sidePicker.getX()+SidePicker.LDFX,
+                sidePicker.getY()+SidePicker.LDFY);
+        leftDownTextField.setWidth(textFieldWidth);
+        leftDownTextField.setVisible(false);
+        settingsStage.addActor(leftDownTextField);
+
+        final TextField leftUpTextField = new CustomTextField("456",skin);
+        leftUpTextField.setPosition(sidePicker.getX()+SidePicker.LTFX,
+                sidePicker.getY()+SidePicker.LTFY);
+        leftUpTextField.setWidth(textFieldWidth);
+        leftUpTextField.setVisible(false);
+        settingsStage.addActor(leftUpTextField);
+
+        final TextField rightDownTextField = new CustomTextField("789",skin);
+        rightDownTextField.setPosition(sidePicker.getX()+SidePicker.RDFX,
+                sidePicker.getY()+SidePicker.RDFY);
+        rightDownTextField.setWidth(textFieldWidth);
+        rightDownTextField.setVisible(false);
+        settingsStage.addActor(rightDownTextField);
+
+        final TextField rightUpTextField = new CustomTextField("876",skin);
+        rightUpTextField.setPosition(sidePicker.getX()+SidePicker.RTFX,
+                sidePicker.getY()+SidePicker.RTFY);
+        rightUpTextField.setWidth(textFieldWidth);
+        rightUpTextField.setVisible(false);
+        settingsStage.addActor(rightUpTextField);
+
+        /**
+         * some callback functions
+         */
+        SidePicker.SideCallbacks sideCallbacks = new SidePicker.SideCallbacks() {
+            @Override
+            public void leftDown(boolean enable) {
+                leftDownTextField.setVisible(enable);
+            }
+
+            @Override
+            public void rightDown(boolean enable) {
+                rightDownTextField.setVisible(enable);
+            }
+
+            @Override
+            public void leftUp(boolean enable) {
+                leftUpTextField.setVisible(enable);
+            }
+
+            @Override
+            public void rightUp(boolean enable) {
+                rightUpTextField.setVisible(enable);
+            }
+        };
+
+        sidePicker.registerCallbacks(sideCallbacks);
+
+        TextButton submitButton = new TextButton("calibrate", skin, "header");
+        submitButton.setPosition((V_WIDTH-submitButton.getWidth())/2, V_HEIGHT*.1f);
+        settingsStage.addActor(submitButton);
+
+
+
+
+
+
 
     }
 
@@ -570,6 +738,16 @@ public class ControlPanelScreen implements Screen {
         Gdx.input.setInputProcessor(inputMultiplexer);
     }
 
+    private void updateInstructionList(){
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0 ; i< instructions.size; i++){
+            builder.append(Integer.toString(i+1)+": ");
+            builder.append(instructions.get(i)+"\n");
+        }
+        String newText = builder.toString();
+        instructionListLabel.setText(newText);
+    }
+
 
     private void drawBackground(){
         Gdx.gl.glClearColor(0,0,0,1);
@@ -636,7 +814,7 @@ public class ControlPanelScreen implements Screen {
                 @Override
                 public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
                     selectedDevice = name;
-                    btAccesor.selectedDevice(address);
+                    btAccesor.selectDevice(address);
                     setStage(adjustStage);
                     return true;
                 }
@@ -663,9 +841,5 @@ public class ControlPanelScreen implements Screen {
 
         }
 
-        @Override
-        public void write(byte[] buffer) {
-
-        }
     };
 }

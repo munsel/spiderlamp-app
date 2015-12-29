@@ -262,7 +262,7 @@ public class AndroidBluetoothAcessor implements BluetoothAcessor {
     }
 
     @Override
-    public void selectedDevice(String adress) {
+    public void selectDevice(String adress) {
         mAdapter.cancelDiscovery();
 
 

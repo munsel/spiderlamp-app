@@ -13,15 +13,8 @@ import de.munsel.spiderlamp.bluetooth.BtMessageHandler;
 public class SpiderlampMain extends Game {
 	private final String TAG = SpiderlampMain.class.getSimpleName();
 
-
-
 	private Screen controlPanelScreen;
 
-
-
-
-	SpriteBatch batch;
-	Texture img;
 	BluetoothAcessor bluetoothAcessor;
 
 	public SpiderlampMain(BluetoothAcessor acessor){
@@ -35,19 +28,4 @@ public class SpiderlampMain extends Game {
 		setScreen(controlPanelScreen);
 
 	}
-/*
-	@Override
-	public void render () {
-		Gdx.gl.glClearColor(1, 0, 0, 1);
-		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-		batch.begin();
-		batch.draw(img, 0, 0);
-		batch.end();
-	}
-	*/
-
-
-
-
-
 }

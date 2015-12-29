@@ -80,8 +80,12 @@ static final Color OVERLAY_BACKGROUND_COLOR = new Color(.2f,.2f,.2f,.9f);
     static final float POS_Z_LABEL_X = .7f;
 
     static final float INSTRUCTION_LABEL_X = .2f;
-    static final float INSTRUCTION_LABEL_Y = .65f;
+    static final float INSTRUCTION_LABEL_Y = .25f;
     static final float INSTRUCTION_LABEL_WIDTH = .6f;
     static final float INSTRUCTION_LABEL_HEIGHT = .45f;
+
+    static final float INSTRUCTION_BUTTON_X = .2f;
+    static final float INSTRUCTION_BUTTON_Y = .1f;
+
 
 }
