@@ -22,12 +22,13 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
-import de.munsel.spiderlamp.actors.ColorPickButton;
-import de.munsel.spiderlamp.actors.CustomTextField;
-import de.munsel.spiderlamp.actors.SidePicker;
-import de.munsel.spiderlamp.actors.XyChooser;
+import de.munsel.spiderlamp.actors.*;
 import de.munsel.spiderlamp.bluetooth.BluetoothAcessor;
 import de.munsel.spiderlamp.bluetooth.BtMessageHandler;
+import de.munsel.spiderlamp.bluetooth.Message;
+import de.munsel.spiderlamp.bluetooth.MessageQueue;
+import de.munsel.spiderlamp.bluetooth.MessageTransmitter.MessageTransmitter;
+import de.munsel.spiderlamp.bluetooth.MessageTransmitter.TransmitDoneCallback;
 
 
 /**
@@ -43,6 +44,8 @@ public class ControlPanelScreen implements Screen {
     private final float POS_INCREMENT = 0.25f;
 
     private BluetoothAcessor btAccesor;
+    private MessageQueue messageQueue;
+    private MessageTransmitter messageTransmitter;
     private int state;
     private Array<String> instructions;
 
@@ -56,6 +59,8 @@ public class ControlPanelScreen implements Screen {
 
     //UI background
     private ShapeRenderer shapeRenderer;
+    private boolean headerEnable = true;
+    private boolean footerEnable = true;
 
     // UI elements
     private OrthographicCamera camera;
@@ -69,6 +74,7 @@ public class ControlPanelScreen implements Screen {
     private Button settingsButtonTab;
     private Button instructionsButtonTab;
     private Button shutDownButton;
+    private BatteryIndicator batteryIndicator;
 
 
     private Stage btDeviceSelectStage;
@@ -112,9 +118,6 @@ public class ControlPanelScreen implements Screen {
 
 
 
-
-
-
     // UI default values
 
     private final CharSequence CONNECTED_DEVICE_DEFAULT_TEXT = "not connected";
@@ -131,9 +134,37 @@ public class ControlPanelScreen implements Screen {
 
     public ControlPanelScreen(SpiderlampMain parent, BluetoothAcessor btAccessor){
         this.btAccesor = btAccessor;
+
+        messageQueue = new MessageQueue(btAccessor);
+        messageTransmitter = new MessageTransmitter(new TransmitDoneCallback()
+        {
+            @Override
+            public void done(Message message)
+            {
+                //check, if batterystatus is sent
+                if (message.getId() == Message.V_ASCII)
+                {
+                    byte[] bytes = message.getBytes();
+                    int adcValue =(int) ( (bytes[1]) | (bytes[2]<<8) );
+                    batteryIndicator.setBatteryValue(adcValue);
+                }
+
+                if (messageQueue.isRunning())
+                {
+                    Message newMessage = messageQueue.decueue();
+                    if (newMessage != null)
+                    {
+                        messageTransmitter.transmit(newMessage);
+                    } else
+                    {
+                        messageQueue.stop();
+                        Gdx.app.log(TAG, "stopped the queue");
+                    }
+                }
+            }
+        }, btAccessor);
+
         state = BluetoothAcessor.STATE_NONE;
-
-
 
         camera = new OrthographicCamera();
         //camera.setToOrtho(false, V_WIDTH,V_HEIGHT);
@@ -178,6 +209,9 @@ public class ControlPanelScreen implements Screen {
 
         lampData = new LampData();
 
+        messageQueue.enqueue(Message.getBatteryMessage());
+
+
     }
 
 
@@ -214,6 +248,10 @@ public class ControlPanelScreen implements Screen {
             shapeRenderer.end();
         }
 
+        if(messageQueue.isRunning()){
+            messageTransmitter.update(delta);
+        }
+
     }
 
     @Override
@@ -244,17 +282,17 @@ public class ControlPanelScreen implements Screen {
     }
 
     /**
-     * to generate a BitmapFont on the fly
+     * to generate some BitmapFonts on the fly
      */
     private void initializeFont() {
         FileHandle handle = Gdx.files.internal("dataUi/droidSansMono.ttf");
-            FreeTypeFontGenerator generator = new FreeTypeFontGenerator(handle);
-            FreeTypeFontGenerator.FreeTypeFontParameter parameter =
+        FreeTypeFontGenerator generator = new FreeTypeFontGenerator(handle);
+        FreeTypeFontGenerator.FreeTypeFontParameter parameter =
                     new FreeTypeFontGenerator.FreeTypeFontParameter();
-            parameter.size = 24;
-            parameter.color = Color.valueOf("ececec");
-            parameter.characters = FONT_CHARACTERS;
-            uiFont24 = generator.generateFont(parameter);
+        parameter.size = 24;
+        parameter.color = Color.valueOf("ececec");
+        parameter.characters = FONT_CHARACTERS;
+        uiFont24 = generator.generateFont(parameter);
         parameter.size = 72;
         parameter.color = Color.WHITE;
         uiFont72 = generator.generateFont(parameter);
@@ -328,12 +366,18 @@ public class ControlPanelScreen implements Screen {
         });
 
 
+        batteryIndicator = new BatteryIndicator(skin);
+        batteryIndicator.setPosition(.75f*V_WIDTH, .9f*V_HEIGHT);
+
+
+
         headerStage.addActor(headerButton);
         headerStage.addActor(adjustButtonTab);
         headerStage.addActor(settingsButtonTab);
         headerStage.addActor(btSelectButtonTab);
         headerStage.addActor(instructionsButtonTab);
         headerStage.addActor(shutDownButton);
+        headerStage.addActor(batteryIndicator);
     }
 
     private void populateAdjustStage(){
@@ -428,22 +472,31 @@ public class ControlPanelScreen implements Screen {
 
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-                //String message = "r"+(int)(pickedColor.r*255);
-                byte blue = (byte)((int)(pickedColor.b*255)&0xFF);
-                byte green = (byte)((int)(pickedColor.g*255)&0xFF);
-                byte red = (byte)((int)(pickedColor.r*255)&0xFF);
-                byte[] bytesBlue = {'b', blue,0,'\n'};
-                byte[] bytesGreen = {'g', green,0,'\n'};
-                byte[] bytesRed = {'r', red,0,'\n'};
-                Gdx.app.log(TAG, Integer.toString( blue) );
-                btAccesor.writeMessage(bytesBlue);
-                Gdx.app.log(TAG, Integer.toString( green) );
-                btAccesor.writeMessage(bytesGreen);
-                Gdx.app.log(TAG, Integer.toString( red) );
-                btAccesor.writeMessage(bytesRed);
 
-                byte[] bytesUpdate = {'u', 0,0,'\n'};
-                btAccesor.writeMessage(bytesUpdate);
+                if (rgbCheckbox.isChecked())
+                {
+                    messageQueue.enqueue(Message.getRedMessage(
+                            (byte)((int)(pickedColor.r*255)&0xFF)
+                    ));
+                    messageQueue.enqueue(Message.getGreenMessage(
+                            (byte) ((int) (pickedColor.g * 255) & 0xFF)
+                    ));
+                    messageQueue.enqueue(Message.getBlueMessage(
+                            (byte) ((int) (pickedColor.b * 255) & 0xFF)
+                    ));
+
+                }
+                if (spotlightCheckbox.isChecked())
+                {
+                    messageQueue.enqueue(Message.getSpotlightMessage(
+                            (byte)((int) (intensitySlider.getValue()) & 0xFF)
+                    ));
+                }
+                messageQueue.enqueue(Message.getBatteryMessage());
+
+                messageQueue.enqueue(Message.getUpdateMessage());
+                messageQueue.start();
+                messageTransmitter.transmit(messageQueue.decueue());
                 return true;
             }
         });
@@ -548,8 +601,7 @@ public class ControlPanelScreen implements Screen {
         Table table = new Table();
         float textFieldWidth = 70;
 
-
-
+        
 
         Label calibraitonHeadline = new Label("calibration", skin, "pos");
         calibraitonHeadline.setPosition((V_WIDTH-calibraitonHeadline.getWidth())/2,V_HEIGHT*.7f);
@@ -655,12 +707,6 @@ public class ControlPanelScreen implements Screen {
         submitButton.setPosition((V_WIDTH-submitButton.getWidth())/2, V_HEIGHT*.1f);
         settingsStage.addActor(submitButton);
 
-
-
-
-
-
-
     }
 
     private void populateColorPickStage(){
@@ -753,14 +799,20 @@ public class ControlPanelScreen implements Screen {
         Gdx.gl.glClearColor(0,0,0,1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(Constants.HEADER_FOOTER_COLOR);
+        drawFooterBackground(shapeRenderer);
+        drawHeaderBackground(shapeRenderer);
+        shapeRenderer.end();
+    }
+
+
+    void drawFooterBackground(ShapeRenderer shapeRenderer){
+        shapeRenderer.setColor(Constants.FOOTER_COLOR);
         shapeRenderer.rect(0,0,V_WIDTH,V_HEIGHT* Constants.FOOTER_HEIGHT);
+    }
+    void drawHeaderBackground(ShapeRenderer shapeRenderer){
+        shapeRenderer.setColor(Constants.HEADER_COLOR);
         shapeRenderer.rect(0,V_HEIGHT*(1-Constants.HEADER_HEIGHT),
                 V_WIDTH,V_HEIGHT*Constants.HEADER_HEIGHT);
-        shapeRenderer.end();
-
-
-
     }
 
     private void drawOverlayBackground(){
@@ -774,8 +826,9 @@ public class ControlPanelScreen implements Screen {
 
 
 
+
     /**
-     * a handler which is uses by the bluetooth accessor to
+     * a handler which is used by the bluetooth accessor to
      * talk back to this controlPanelScreen
      */
     private BtMessageHandler handler = new BtMessageHandler(){
@@ -787,8 +840,8 @@ public class ControlPanelScreen implements Screen {
         }
 
         @Override
-        public void receiveMessage(String msg) {
-
+        public void receiveMessage(byte[] msg) {
+            messageTransmitter.receiveAnswer(msg);
 
         }
 

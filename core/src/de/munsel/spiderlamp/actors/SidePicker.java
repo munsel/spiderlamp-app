@@ -186,14 +186,12 @@ public class SidePicker extends Actor{
             public void touchUp(InputEvent event, float x, float y, int pointer, int button) {
                 super.touchUp(event, x, y, pointer, button);
                 quartileCheck(x,y);
-                Gdx.app.log(TAG, "touch up");
             }
 
             @Override
             public void touchDragged(InputEvent event, float x, float y, int pointer) {
                 super.touchDragged(event, x, y, pointer);
-                Gdx.app.log(TAG, "touch down");
-                quartileCheck(x, y);
+                //quartileCheck(x, y);
             }
         };
 
@@ -209,7 +207,6 @@ public class SidePicker extends Actor{
     }
 
     public void quartileCheck(float x, float y){
-        Gdx.app.log(TAG, "checking quartiles");
         //do nothing, when invalid input
         if (x< 0 ||
                 x> getWidth()||
@@ -224,7 +221,6 @@ public class SidePicker extends Actor{
         if (x < getWidth()*.5f) {
             //animate left side
             if (y < getHeight()*.5f){
-                Gdx.app.log(TAG, "LEFT DOWN BOOM!!");
                 tween("ld");
                 //leftDown
             }else{

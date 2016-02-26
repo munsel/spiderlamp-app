@@ -8,7 +8,7 @@ package de.munsel.spiderlamp.bluetooth;
  */
 public interface BtMessageHandler {
     void setState(int state);
-    void receiveMessage(String msg);
+    void receiveMessage(byte[] msg);
     void finishedDiscovery();
     void getPairedDevice(String name, String address);
     void discoveredNewDevice(String name, String address);

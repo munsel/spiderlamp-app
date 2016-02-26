@@ -24,6 +24,7 @@ import java.util.UUID;
 public class AndroidBluetoothAcessor implements BluetoothAcessor {
 
     private BtMessageHandler mHandler;
+
     private BluetoothAdapter mAdapter;
     private AcceptThread mSecureAcceptThread;
     private AcceptThread mInsecureAcceptThread;
@@ -69,7 +70,7 @@ public class AndroidBluetoothAcessor implements BluetoothAcessor {
         //Log.d(TAG, "setState() " + mState + " -> " + state);
         mState = state;
 
-        // Give the new state to the Handler so the UI Activity can update
+        // Give the new state to the Handler so the UI can update
         mHandler.setState(mState);
     }
 
@@ -265,7 +266,6 @@ public class AndroidBluetoothAcessor implements BluetoothAcessor {
     public void selectDevice(String adress) {
         mAdapter.cancelDiscovery();
 
-
         BluetoothDevice device = mAdapter.getRemoteDevice(adress);
         connect(device, false);
 /*
@@ -287,6 +287,7 @@ public class AndroidBluetoothAcessor implements BluetoothAcessor {
 
     @Override
     public boolean isConnected() {
+        if (mAdapter.getState() == BluetoothAdapter.STATE_CONNECTED)return true;
         return false;
     }
 
@@ -537,7 +538,7 @@ public class AndroidBluetoothAcessor implements BluetoothAcessor {
 
                     // Send the obtained bytes to the UI Activity
                     //mHandler.receiveMessage(String.toString(buffer));
-                    mHandler.receiveMessage(new String(buffer));
+                    mHandler.receiveMessage(buffer);
                     //mHandler.obtainMessage(Constants.MESSAGE_READ, bytes, -1, buffer)
                     //     .sendToTarget();
                 } catch (IOException e) {

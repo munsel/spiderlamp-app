@@ -16,7 +16,9 @@ public abstract class Constants {
      * define Positions of the boundarybox of
      * position control Elements
      */
-    static final Color HEADER_FOOTER_COLOR = Color.valueOf("72a3be");
+    static final Color HEADER_COLOR = Color.valueOf("72a3be");
+    static final Color FOOTER_COLOR = Color.valueOf("72a3be");
+
     static final float HEADER_HEIGHT =.25f;
     static final float FOOTER_HEIGHT =.195f;
 
