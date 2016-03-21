@@ -1,7 +1,6 @@
 package de.munsel.spiderlamp;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.files.FileHandle;
@@ -74,6 +73,7 @@ public class ControlPanelScreen implements Screen {
     private Button settingsButtonTab;
     private Button instructionsButtonTab;
     private Button shutDownButton;
+    private Button joypadButtonTab;
     private BatteryIndicator batteryIndicator;
 
 
@@ -91,6 +91,13 @@ public class ControlPanelScreen implements Screen {
     private ColorPickButton colorPickButton;
     private Slider intensitySlider, heightSlider;
     private Label xPosLabel, yPosLabel, zPosLabel;
+
+    private Stage joypadStage;
+    private JoyStick joystick;
+    private JoyStickY joyStickY;
+    private TextButton upButton;
+    private TextButton downButton;
+
 
 
     private Stage colorPickStage;
@@ -194,6 +201,7 @@ public class ControlPanelScreen implements Screen {
         Viewport viewport = new ScreenViewport(camera);
         headerStage = new Stage(viewport);
         btDeviceSelectStage = new Stage(viewport);
+        joypadStage = new Stage(viewport);
         colorPickStage = new Stage(viewport);
         adjustStage = new Stage(viewport);
         instructionListStage = new Stage(viewport);
@@ -223,13 +231,12 @@ public class ControlPanelScreen implements Screen {
         headerStage.clear();
 
         populateAdjustStage();
+        populateJoypadStage();
         populateColorPickStage();
         populateHeaderStage();
         populateDeviceSelectStage();
         populateInstructionListStage();
         populateSettingsStage();
-
-
     }
 
     @Override
@@ -239,7 +246,6 @@ public class ControlPanelScreen implements Screen {
             stage.act(delta);
             stage.draw();
         }
-
 
         if (isColorPicking){
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
@@ -323,8 +329,29 @@ public class ControlPanelScreen implements Screen {
             }
         });
 
+        joypadButtonTab = new Button(skin, "joystick");
+        joypadButtonTab.setPosition((Constants.FIRST_TAB_X + Constants.OFFSET_TAB_X) * V_WIDTH,
+                Constants.TABS_Y * V_HEIGHT);
+        joypadButtonTab.addListener( new ClickListener(){
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                setStage(joypadStage);
+            }
+        });
+
+        instructionsButtonTab = new Button(skin,"instructions");
+        instructionsButtonTab.setPosition((Constants.FIRST_TAB_X+2*Constants.OFFSET_TAB_X)*V_WIDTH,
+                Constants.TABS_Y*V_HEIGHT);
+        instructionsButtonTab.addListener(new ClickListener(){
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                updateInstructionList();
+                setStage(instructionListStage);
+            }
+        });
+
         settingsButtonTab = new Button(skin, "settings");
-        settingsButtonTab.setPosition((Constants.FIRST_TAB_X+Constants.OFFSET_TAB_X)*V_WIDTH,
+        settingsButtonTab.setPosition((Constants.FIRST_TAB_X+3*Constants.OFFSET_TAB_X)*V_WIDTH,
                 Constants.TABS_Y*V_HEIGHT);
         settingsButtonTab.addListener(new ClickListener(){
             @Override
@@ -334,26 +361,19 @@ public class ControlPanelScreen implements Screen {
         });
 
 
+
         btSelectButtonTab = new Button(skin, "bt-search");
-        btSelectButtonTab.setPosition((Constants.FIRST_TAB_X+2*Constants.OFFSET_TAB_X)*V_WIDTH,
-                Constants.TABS_Y*V_HEIGHT);
+        btSelectButtonTab.setPosition((Constants.FIRST_TAB_X + 3 * Constants.OFFSET_TAB_X)*V_WIDTH,
+                Constants.HEADER_BUTTON_Y*V_HEIGHT);
         btSelectButtonTab.addListener(new ClickListener(){
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 setStage(btDeviceSelectStage);
             }
         });
+        btSelectButtonTab.setColor(1,0,0,1);
 
-        instructionsButtonTab = new Button(skin,"instructions");
-        instructionsButtonTab.setPosition((Constants.FIRST_TAB_X+3*Constants.OFFSET_TAB_X)*V_WIDTH,
-                Constants.TABS_Y*V_HEIGHT);
-        instructionsButtonTab.addListener(new ClickListener(){
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                updateInstructionList();
-                setStage(instructionListStage);
-            }
-        });
+
 
         shutDownButton = new Button(skin, "off");
         shutDownButton.setPosition((Constants.FIRST_TAB_X+4*Constants.OFFSET_TAB_X)*V_WIDTH,
@@ -367,13 +387,16 @@ public class ControlPanelScreen implements Screen {
 
 
         batteryIndicator = new BatteryIndicator(skin);
-        batteryIndicator.setPosition(.75f*V_WIDTH, .9f*V_HEIGHT);
-
-
+        batteryIndicator.setPosition(.82f*V_WIDTH,
+                Constants.HEADER_BUTTON_Y*V_HEIGHT+
+                        (btSelectButtonTab.getHeight()-batteryIndicator.getHeight())/2);
+        batteryIndicator.setBatteryValue(640);
+        batteryIndicator.setVisible(false);
 
         headerStage.addActor(headerButton);
         headerStage.addActor(adjustButtonTab);
         headerStage.addActor(settingsButtonTab);
+        headerStage.addActor(joypadButtonTab);
         headerStage.addActor(btSelectButtonTab);
         headerStage.addActor(instructionsButtonTab);
         headerStage.addActor(shutDownButton);
@@ -475,16 +498,13 @@ public class ControlPanelScreen implements Screen {
 
                 if (rgbCheckbox.isChecked())
                 {
-                    messageQueue.enqueue(Message.getRedMessage(
-                            (byte)((int)(pickedColor.r*255)&0xFF)
-                    ));
-                    messageQueue.enqueue(Message.getGreenMessage(
-                            (byte) ((int) (pickedColor.g * 255) & 0xFF)
-                    ));
-                    messageQueue.enqueue(Message.getBlueMessage(
-                            (byte) ((int) (pickedColor.b * 255) & 0xFF)
-                    ));
+                    enqueueRGBMessage();
 
+                }else
+                {
+                    messageQueue.enqueue(Message.getRedMessage((byte) 0));
+                    messageQueue.enqueue(Message.getGreenMessage((byte)0));
+                    messageQueue.enqueue(Message.getBlueMessage((byte)0));
                 }
                 if (spotlightCheckbox.isChecked())
                 {
@@ -500,6 +520,7 @@ public class ControlPanelScreen implements Screen {
                 return true;
             }
         });
+        sendButton.setVisible(false);
 
         colorPickButton = new ColorPickButton();
         colorPickButton.setPosition(Constants.COLORPICK_X*V_WIDTH,
@@ -519,7 +540,7 @@ public class ControlPanelScreen implements Screen {
             }
         });
 
-        intensitySlider = new Slider(4,10,0.2f,false,skin, "intensity");
+        intensitySlider = new Slider(4,10,0.2f,false,skin, /*"intensity"*/"height");
         intensitySlider.setWidth(Constants.INTENSITY_SLIDER_WIDTH*V_WIDTH);
         intensitySlider.setPosition(Constants.INTENSITY_SLIDER_X*V_WIDTH,
                 Constants.INTENSITY_SLIDER_Y*V_HEIGHT);
@@ -554,6 +575,81 @@ public class ControlPanelScreen implements Screen {
         adjustStage.addActor(heightSlider);
 
 
+    }
+
+    private void populateJoypadStage(){
+        joystick = new JoyStick(skin);
+        joystick.setPosition(V_WIDTH*.2f, V_HEIGHT*.25f);
+        joystick.addListener(new InputListener(){
+
+            @Override
+            public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+                joystick.setKnobPos(x,y);
+                return true;
+            }
+
+            @Override
+            public void touchUp(InputEvent event, float x, float y, int pointer, int button) {
+                super.touchUp(event, x, y, pointer, button);
+                joystick.setKnobToCenter();
+            }
+
+            @Override
+            public void touchDragged(InputEvent event, float x, float y, int pointer) {
+                super.touchDragged(event, x, y, pointer);
+                joystick.setKnobPos(x,y);
+            }
+        });
+
+        joyStickY = new JoyStickY(skin);
+        joyStickY.setPosition(.7f*V_WIDTH,.25f*V_HEIGHT);
+        joyStickY.addListener(new InputListener(){
+
+            @Override
+            public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+                joyStickY.setKnobPos(y);
+                return true;
+            }
+
+            @Override
+            public void touchUp(InputEvent event, float x, float y, int pointer, int button) {
+                super.touchUp(event, x, y, pointer, button);
+                joyStickY.setKnobToCenter();
+            }
+
+            @Override
+            public void touchDragged(InputEvent event, float x, float y, int pointer) {
+                super.touchDragged(event, x, y, pointer);
+                joyStickY.setKnobPos(y);
+            }
+        });
+
+        upButton = new TextButton("up",skin, "device");
+        upButton.setPosition(V_WIDTH*.6f,V_HEIGHT*.6f);
+        upButton.addListener(new ClickListener(){
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                messageQueue.enqueue(Message.getZMessage(2));
+                messageQueue.start();
+                messageTransmitter.transmit(messageQueue.decueue());
+            }
+        });
+
+        downButton = new TextButton("down",skin, "device");
+        downButton.setPosition(V_WIDTH*.6f,V_HEIGHT*.55f);
+        downButton.addListener(new ClickListener(){
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                messageQueue.enqueue(Message.getZMessage(1));
+                messageQueue.start();
+                messageTransmitter.transmit(messageQueue.decueue());
+            }
+        });
+
+        joypadStage.addActor(joystick);
+        joypadStage.addActor(joyStickY);
+        joypadStage.addActor(upButton);
+        joypadStage.addActor(downButton);
     }
 
     private void populateInstructionListStage(){
@@ -624,7 +720,7 @@ public class ControlPanelScreen implements Screen {
         Label heightLabel = new Label("h=    cm", skin);
         heightLabel.setPosition(V_WIDTH*.63f, V_HEIGHT*.46f);
         settingsStage.addActor(heightLabel);
-        TextField heigthTextField = new CustomTextField("123", skin);
+        final TextField heigthTextField = new CustomTextField("123", skin);
         heigthTextField.setTextFieldFilter(new TextField.TextFieldFilter.DigitsOnlyFilter());
         heigthTextField.setPosition(V_WIDTH*.7f, V_HEIGHT*.46f);
         heigthTextField.setWidth(textFieldWidth);
@@ -633,7 +729,7 @@ public class ControlPanelScreen implements Screen {
         Label distanceLabel = new Label("a=    cm", skin);
         distanceLabel.setPosition(V_WIDTH * .63f, V_HEIGHT * .51f);
         settingsStage.addActor(distanceLabel);
-        TextField distanceTextField = new CustomTextField("123", skin);
+        final TextField distanceTextField = new CustomTextField("123", skin);
         distanceTextField.setPosition(V_WIDTH * .7f, V_HEIGHT * .51f);
         distanceTextField.setWidth(textFieldWidth);
         settingsStage.addActor(distanceTextField);
@@ -704,7 +800,23 @@ public class ControlPanelScreen implements Screen {
         sidePicker.registerCallbacks(sideCallbacks);
 
         TextButton submitButton = new TextButton("calibrate", skin, "header");
-        submitButton.setPosition((V_WIDTH-submitButton.getWidth())/2, V_HEIGHT*.1f);
+        submitButton.setPosition((V_WIDTH-submitButton.getWidth())/2, V_HEIGHT*.06f);
+        submitButton.addListener(new ClickListener(){
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                messageQueue.enqueue(Message.getAMessage(Integer.valueOf(distanceTextField.getText())));
+                messageQueue.enqueue(Message.getHMessage(Integer.valueOf(heigthTextField.getText())));
+                messageQueue.enqueue(Message.getIMessage(Integer.valueOf(leftDownTextField.getText())));
+                messageQueue.enqueue(Message.getJMessage(Integer.valueOf(rightDownTextField.getText())));
+                messageQueue.enqueue(Message.getKMessage(Integer.valueOf(rightUpTextField.getText())));
+                messageQueue.enqueue(Message.getLMessage(Integer.valueOf(leftUpTextField.getText())));
+                messageQueue.enqueue(Message.getCMessage());
+                messageQueue.start();
+
+
+            }
+        });
+
         settingsStage.addActor(submitButton);
 
     }
@@ -740,6 +852,14 @@ public class ControlPanelScreen implements Screen {
                         colorPickPixmap.getHeight() - (int) y));
                 colorPickButton.setColor(pickedColor);
                 pickedPosition.set(x,y);
+
+                enqueueRGBMessage();
+                messageQueue.enqueue(Message.getUpdateMessage());
+                messageQueue.start();
+                if (messageTransmitter.isSending())
+                {
+                    messageTransmitter.transmit(messageQueue.decueue());
+                }
             }
         });
 
@@ -813,6 +933,9 @@ public class ControlPanelScreen implements Screen {
         shapeRenderer.setColor(Constants.HEADER_COLOR);
         shapeRenderer.rect(0,V_HEIGHT*(1-Constants.HEADER_HEIGHT),
                 V_WIDTH,V_HEIGHT*Constants.HEADER_HEIGHT);
+       /* shapeRenderer.setColor(.9f,.8f,.8f,1);
+        shapeRenderer.rect(0,V_HEIGHT*(1-Constants.HEADER_HEIGHT),
+                V_WIDTH,V_HEIGHT*Constants.HEADER_HEIGHT/2);*/
     }
 
     private void drawOverlayBackground(){
@@ -821,6 +944,19 @@ public class ControlPanelScreen implements Screen {
         shapeRenderer.setColor(Constants.OVERLAY_BACKGROUND_COLOR);
         shapeRenderer.rect(0, 0, V_WIDTH, V_HEIGHT);
         shapeRenderer.end();
+    }
+
+    private void enqueueRGBMessage()
+    {
+        messageQueue.enqueue(Message.getRedMessage(
+                (byte)((int)(pickedColor.r*255)&0xFF)
+        ));
+        messageQueue.enqueue(Message.getGreenMessage(
+                (byte) ((int) (pickedColor.g * 255) & 0xFF)
+        ));
+        messageQueue.enqueue(Message.getBlueMessage(
+                (byte) ((int) (pickedColor.b * 255) & 0xFF)
+        ));
     }
 
 
@@ -880,17 +1016,26 @@ public class ControlPanelScreen implements Screen {
 
         @Override
         public void connect(String deviceName) {
+            btSelectButtonTab.setColor(0,1,0,1);
+            batteryIndicator.setVisible(true);
+            sendButton.setVisible(true);
 
 
         }
 
         @Override
         public void failedToConnect() {
+            btSelectButtonTab.setColor(1,0,0,1);
+            batteryIndicator.setVisible(false);
+            sendButton.setVisible(false);
 
         }
 
         @Override
         public void lostConnection() {
+            btSelectButtonTab.setColor(1,0,0,1);
+            batteryIndicator.setVisible(false);
+            sendButton.setVisible(false);
 
         }
 

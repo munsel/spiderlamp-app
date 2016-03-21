@@ -536,6 +536,7 @@ public class AndroidBluetoothAcessor implements BluetoothAcessor {
                     // Read from the InputStream
                     bytes = mmInStream.read(buffer);
 
+
                     // Send the obtained bytes to the UI Activity
                     //mHandler.receiveMessage(String.toString(buffer));
                     mHandler.receiveMessage(buffer);

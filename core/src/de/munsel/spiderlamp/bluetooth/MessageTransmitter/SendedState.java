@@ -11,7 +11,7 @@ public class SendedState implements TransmitState {
     private final String TAG = SendedState.class.getSimpleName();
 
     private float timer;
-    private final float TIMER_LIMIT = 1f;
+    private final float TIMER_LIMIT = .8f;
 
 
     private MessageTransmitter transmitter;
@@ -27,7 +27,11 @@ public class SendedState implements TransmitState {
         this.acessor = acessor;
         timer = 0;
         acessor.writeMessage(message.getBytes());
-        Gdx.app.log(TAG, "sended stuff");
+        String ans = "";
+        for (int i = 0; i< 4; i++){
+            ans += message.getBytes()[i]+" ";
+        }
+        Gdx.app.log(TAG, "sended is: "+ans);
     }
 
     @Override
@@ -43,16 +47,19 @@ public class SendedState implements TransmitState {
 
     @Override
     public void receiveAnswer(byte[] answer) {
-        Gdx.app.log(TAG, "answer is: "+(char)answer[0]);
-        Gdx.app.log(TAG, "id  is: "+(char)message.getId());
-        if (message.getId() != answer[0])
+        //Gdx.app.log(TAG, "answer is: "+(char)answer[0]);
+        //Gdx.app.log(TAG, "id  is: "+(char)message.getId());
+
+        byte idindex = 0;
+
+        if (message.getId() != answer[idindex])
         {
             transmitter.setState(new ErrorState(transmitter, message,acessor));
         } else // when message was correct
         {
             transmitter.resetCounter();
             transmitter.setState(new IdleState(transmitter, acessor));
-            transmitter.done(new Message(answer[0], answer[1], answer[2]));
+            transmitter.done(new Message(answer[idindex], answer[idindex+1], answer[idindex+2]));
         }
     }
 

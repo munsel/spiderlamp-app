@@ -24,10 +24,6 @@ public class SpiderlampMain extends Game {
 	@Override
 	public void create () {
 
-		int i = 128;
-		byte b = (byte)(i & 0xFF);
-		Gdx.app.log(TAG, Byte.toString(b));
-
 		Gdx.graphics.setDisplayMode(720, 1280, false);
 		controlPanelScreen = new ControlPanelScreen(this, bluetoothAcessor);
 		setScreen(controlPanelScreen);

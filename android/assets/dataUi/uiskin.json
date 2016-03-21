@@ -10,7 +10,8 @@ com.badlogic.gdx.scenes.scene2d.ui.Skin$TintedDrawable: {
 },
 com.badlogic.gdx.scenes.scene2d.ui.Button$ButtonStyle: {
   color-pick: {},
-  bt-search: { down: bt_up, up: bt_up},
+  joystick: { down: joystick-tab, up: joystick-tab},
+  bt-search: { down: bt_up, up: bt_white},
   adjust: {down: coordinates, up: coordinates},
   settings: {down: settings, up: settings},
   instructions: {down: instructions, up: instructions},

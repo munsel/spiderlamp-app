@@ -34,7 +34,8 @@ public class MessageTransmitter {
         callback.done(message);
     }
 
-    public void transmit(Message message)
+
+ public void transmit(Message message)
     {
         state.transmit(message);
 
@@ -42,7 +43,11 @@ public class MessageTransmitter {
 
     public void receiveAnswer(byte[] answer)
     {
-        Gdx.app.log(state.getClass().getSimpleName(), "receive");
+        String ans = "";
+        for (int i = 0; i< 10; i++){
+            ans += answer[i]+" ";
+        }
+        Gdx.app.log(TAG, "answer is: "+ans);
         state.receiveAnswer(answer);
     }
 
@@ -61,6 +66,11 @@ public class MessageTransmitter {
     int getAttemptCounter(){return attemptCounter;}
     void incrementCounter(){attemptCounter++;}
     void resetCounter(){attemptCounter = 0;}
+
+    public boolean isSending(){
+        return state.getClass().getSimpleName().equals( IdleState.class.getSimpleName() );
+
+    }
 
 
 }
