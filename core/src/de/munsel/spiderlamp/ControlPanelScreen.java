@@ -7,13 +7,13 @@ import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Interpolation;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.InputListener;
-import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.*;
+import com.badlogic.gdx.scenes.scene2d.actions.Actions;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -21,13 +21,14 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
+import de.munsel.spiderlamp.LampDataManagement.LampData;
+import de.munsel.spiderlamp.LampDataManagement.LampDataManager;
 import de.munsel.spiderlamp.actors.*;
-import de.munsel.spiderlamp.bluetooth.BluetoothAcessor;
-import de.munsel.spiderlamp.bluetooth.BtMessageHandler;
-import de.munsel.spiderlamp.bluetooth.Message;
-import de.munsel.spiderlamp.bluetooth.MessageQueue;
+import de.munsel.spiderlamp.bluetooth.*;
 import de.munsel.spiderlamp.bluetooth.MessageTransmitter.MessageTransmitter;
 import de.munsel.spiderlamp.bluetooth.MessageTransmitter.TransmitDoneCallback;
+
+import java.util.Queue;
 
 
 /**
@@ -44,9 +45,10 @@ public class ControlPanelScreen implements Screen {
 
     private BluetoothAcessor btAccesor;
     private MessageQueue messageQueue;
+    private MessageQueue instructions;
+    private Queue<Message> savedMessageQueue;
     private MessageTransmitter messageTransmitter;
     private int state;
-    private Array<String> instructions;
 
     // UI and font settings
     private Skin skin;
@@ -93,8 +95,10 @@ public class ControlPanelScreen implements Screen {
     private Label xPosLabel, yPosLabel, zPosLabel;
 
     private Stage joypadStage;
+    private CoordinateAxis coordinateAxis;
     private JoyStick joystick;
     private JoyStickY joyStickY;
+    private Image colorIndicatorImage;
     private TextButton upButton;
     private TextButton downButton;
 
@@ -102,8 +106,6 @@ public class ControlPanelScreen implements Screen {
 
     private Stage colorPickStage;
     private Image colorPickImage;
-    private boolean isInColorPickingMode;
-    private boolean isColorPicking;
     private Vector2 pickedPosition;
     private Color pickedColor;
     private Label colorPickCaptionLabel;
@@ -125,45 +127,34 @@ public class ControlPanelScreen implements Screen {
 
 
 
-    // UI default values
-
-    private final CharSequence CONNECTED_DEVICE_DEFAULT_TEXT = "not connected";
-    private final CharSequence LOG_LABEL_DEFAULT_TEXT = "SPINNE: Hello, i am ready!\n" +
-            "ME:x:128 y:200 z:100\n" +
-            "SPINNE: ok\n" +
-            "ME: r:182 g:255 b:0\n" +
-            "SPINNE: ok\n" +
-            "ME:shutdown\n" +
-            "SPINNE: ok\n" +
-            "SPINNE: goodbye";
-
-
 
     public ControlPanelScreen(SpiderlampMain parent, BluetoothAcessor btAccessor){
         this.btAccesor = btAccessor;
 
         messageQueue = new MessageQueue(btAccessor);
+        instructions = new MessageQueue(null);
         messageTransmitter = new MessageTransmitter(new TransmitDoneCallback()
         {
             @Override
             public void done(Message message)
             {
                 //check, if batterystatus is sent
-                if (message.getId() == Message.V_ASCII)
+                if (message.getId() == Message.BATTERY_ID)
                 {
                     byte[] bytes = message.getBytes();
                     int adcValue =(int) ( (bytes[1]) | (bytes[2]<<8) );
                     batteryIndicator.setBatteryValue(adcValue);
                 }
-
                 if (messageQueue.isRunning())
                 {
                     Message newMessage = messageQueue.decueue();
                     if (newMessage != null)
                     {
                         messageTransmitter.transmit(newMessage);
-                    } else
+                    }
+                    else
                     {
+                        sendButton.setVisible(true);
                         messageQueue.stop();
                         Gdx.app.log(TAG, "stopped the queue");
                     }
@@ -173,23 +164,26 @@ public class ControlPanelScreen implements Screen {
 
         state = BluetoothAcessor.STATE_NONE;
 
-        camera = new OrthographicCamera();
+
         //camera.setToOrtho(false, V_WIDTH,V_HEIGHT);
 
         isDeviceSelecting = false;
-        isInColorPickingMode = false;
-        isColorPicking = false;
         pickedColor = new Color(Constants.COLORPICK_DEFAULT_COLOR);
         pickedPosition = new Vector2();
         devices = new Array<TextButton>();
 
-        instructions = new Array<String>();
+        // Data initialization
+        lampData = LampDataManager.getSavedLampData();
+        if (lampData == null)
+            lampData = new LampData();
 
         // Font initialization
         initializeFont();
         skin = new Skin();
         skin.addRegions(new TextureAtlas(Gdx.files.internal("dataUi/uiskin.atlas")));
         skin.addRegions(new TextureAtlas(Gdx.files.internal("dataUi/spinneUi.atlas")));
+        Color textColor = Color.valueOf("90849b");
+        skin.add("textcolor", textColor);
         skin.add("droid-mono-24", uiFont24);
         skin.add("droid-mono-72", uiFont72);
         skin.add("droid-mono-36", uiFont36);
@@ -198,6 +192,7 @@ public class ControlPanelScreen implements Screen {
         // UI initialization
         shapeRenderer = new ShapeRenderer();
 
+        camera = new OrthographicCamera();
         Viewport viewport = new ScreenViewport(camera);
         headerStage = new Stage(viewport);
         btDeviceSelectStage = new Stage(viewport);
@@ -208,6 +203,7 @@ public class ControlPanelScreen implements Screen {
         settingsStage = new Stage(viewport);
 
         inputMultiplexer = new InputMultiplexer();
+
         inputMultiplexer.addProcessor(headerStage);
         inputMultiplexer.addProcessor(adjustStage);
 
@@ -215,11 +211,8 @@ public class ControlPanelScreen implements Screen {
         stages.add(headerStage);
         stages.add(adjustStage);
 
-        lampData = new LampData();
 
         messageQueue.enqueue(Message.getBatteryMessage());
-
-
     }
 
 
@@ -247,12 +240,6 @@ public class ControlPanelScreen implements Screen {
             stage.draw();
         }
 
-        if (isColorPicking){
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            shapeRenderer.setColor(pickedColor);
-            shapeRenderer.rect(pickedPosition.x-50,pickedPosition.y+50, 100,100);
-            shapeRenderer.end();
-        }
 
         if(messageQueue.isRunning()){
             messageTransmitter.update(delta);
@@ -296,11 +283,12 @@ public class ControlPanelScreen implements Screen {
         FreeTypeFontGenerator.FreeTypeFontParameter parameter =
                     new FreeTypeFontGenerator.FreeTypeFontParameter();
         parameter.size = 24;
-        parameter.color = Color.valueOf("ececec");
+        //parameter.color = Color.valueOf("ececec");
+        parameter.color = Color.valueOf("90849b");
         parameter.characters = FONT_CHARACTERS;
         uiFont24 = generator.generateFont(parameter);
         parameter.size = 72;
-        parameter.color = Color.WHITE;
+        //parameter.color = Color.WHITE;
         uiFont72 = generator.generateFont(parameter);
         parameter.size = 36;
         uiFont36 =generator.generateFont(parameter);
@@ -315,9 +303,11 @@ public class ControlPanelScreen implements Screen {
      * to the corresponding stage
      */
     private void populateHeaderStage(){
+        Color tabButtonColor = Color.valueOf("444444");
         headerButton = new TextButton("//SPINNE", skin, "header");
         headerButton.setPosition(Constants.HEADER_BUTTON_X*V_WIDTH,
                 Constants.HEADER_BUTTON_Y*V_HEIGHT);
+
 
         adjustButtonTab = new Button(skin, "adjust");
         adjustButtonTab.setPosition(Constants.FIRST_TAB_X*V_WIDTH, Constants.TABS_Y*V_HEIGHT);
@@ -328,6 +318,7 @@ public class ControlPanelScreen implements Screen {
                 setStage(adjustStage);
             }
         });
+        adjustButtonTab.setColor(tabButtonColor);
 
         joypadButtonTab = new Button(skin, "joystick");
         joypadButtonTab.setPosition((Constants.FIRST_TAB_X + Constants.OFFSET_TAB_X) * V_WIDTH,
@@ -338,6 +329,7 @@ public class ControlPanelScreen implements Screen {
                 setStage(joypadStage);
             }
         });
+        joypadButtonTab.setColor(tabButtonColor);
 
         instructionsButtonTab = new Button(skin,"instructions");
         instructionsButtonTab.setPosition((Constants.FIRST_TAB_X+2*Constants.OFFSET_TAB_X)*V_WIDTH,
@@ -349,6 +341,7 @@ public class ControlPanelScreen implements Screen {
                 setStage(instructionListStage);
             }
         });
+        instructionsButtonTab.setColor(tabButtonColor);
 
         settingsButtonTab = new Button(skin, "settings");
         settingsButtonTab.setPosition((Constants.FIRST_TAB_X+3*Constants.OFFSET_TAB_X)*V_WIDTH,
@@ -359,6 +352,7 @@ public class ControlPanelScreen implements Screen {
                 setStage(settingsStage);
             }
         });
+        settingsButtonTab.setColor(tabButtonColor);
 
 
 
@@ -381,9 +375,13 @@ public class ControlPanelScreen implements Screen {
         shutDownButton.addListener(new ClickListener(){
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                Gdx.app.exit();
+                //Gdx.app.exit();
+                messageQueue.enqueue(Message.getOffMessage());
+                messageQueue.start();
+                messageTransmitter.transmit(messageQueue.decueue());
             }
         });
+        shutDownButton.setColor(tabButtonColor);
 
 
         batteryIndicator = new BatteryIndicator(skin);
@@ -405,29 +403,18 @@ public class ControlPanelScreen implements Screen {
 
     private void populateAdjustStage(){
 
-        xPosLabel = new Label("x", skin, "pos");
-        xPosLabel.setPosition(Constants.POS_X_LABEL_X*V_WIDTH, Constants.POS_LABEL_Y*V_HEIGHT);
-        yPosLabel = new Label("y", skin, "pos");
-        yPosLabel.setPosition(Constants.POS_Y_LABEL_X*V_WIDTH, Constants.POS_LABEL_Y*V_HEIGHT);
-        zPosLabel = new Label("z", skin, "pos");
-        zPosLabel.setPosition(Constants.POS_Z_LABEL_X*V_WIDTH, Constants.POS_LABEL_Y*V_HEIGHT);
-
         xyChooser = new XyChooser(skin);
         xyChooser.setPosition(V_WIDTH*Constants.XY_CHOOSER_X,
                 V_HEIGHT*Constants.XY_CHOOSER_Y);
+
         xyChooser.addListener(new InputListener(){
 
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
                 xyChooser.setLamp(x, y);
-                lampData.setX(xyChooser.getRealX(lampData.getMountWidth()));
-                lampData.setY(xyChooser.getRealY(lampData.getMountWidth()));
-                String newXText = Float.toString(lampData.getX());
-                if( newXText.length()>4) newXText = newXText.substring(0,4);
-                xPosLabel.setText(newXText);
-                String newYText = Float.toString(lampData.getY());
-                if( newYText.length()>4) newYText = newYText.substring(0,4);
-                yPosLabel.setText( newYText);
+                lampData.setX((int)xyChooser.getRealX(lampData.getA()));
+                lampData.setY((int) xyChooser.getRealY(lampData.getA()));
+                setXYPosLabels();
                 return true;
             }
 
@@ -439,16 +426,20 @@ public class ControlPanelScreen implements Screen {
             @Override
             public void touchDragged(InputEvent event, float x, float y, int pointer) {
                 xyChooser.setLamp(x, y);
-                lampData.setX(xyChooser.getRealX(lampData.getMountWidth()));
-                lampData.setY(xyChooser.getRealY(lampData.getMountWidth()));
-                String newXText = Float.toString(lampData.getX());
-                if( newXText.length()>4) newXText = newXText.substring(0,4);
-                xPosLabel.setText( newXText);
-                String newYText = Float.toString(lampData.getY());
-                if( newYText.length()>4) newYText = newYText.substring(0,4);
-                yPosLabel.setText( newYText);
+                lampData.setX((int)xyChooser.getRealX(lampData.getA()));
+                lampData.setY((int)xyChooser.getRealY(lampData.getA()));
+                setXYPosLabels();
             }
         });
+
+        xPosLabel = new Label("x", skin, "pos");
+        //xPosLabel.setPosition(Constants.POS_X_LABEL_X*V_WIDTH, Constants.POS_LABEL_Y*V_HEIGHT);
+        yPosLabel = new Label("y", skin, "pos");
+        //yPosLabel.setPosition(Constants.POS_Y_LABEL_X*V_WIDTH, Constants.POS_LABEL_Y*V_HEIGHT);
+        setXYPosLabels();
+
+        zPosLabel = new Label("1", skin, "pos");
+        zPosLabel.setPosition(Constants.POS_Z_LABEL_X*V_WIDTH, Constants.POS_LABEL_Y*V_HEIGHT);
 
         spotlightCheckbox = new CheckBox("spot", skin, "adjust");
         spotlightCheckbox.setPosition(V_WIDTH*Constants.CHECKBOX_X, V_HEIGHT*Constants.CHECKBOX_SPOT_Y);
@@ -473,18 +464,13 @@ public class ControlPanelScreen implements Screen {
             }
         });
 
-
         addButton = new Button( skin, "add");
         addButton.setPosition(Constants.ADD_BUTTON_X*V_WIDTH,
                 Constants.ADD_BUTTON_Y*V_HEIGHT);
         addButton.addListener(new InputListener() {
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-                String message = "x: " + xPosLabel.getText().toString()
-                        + ", y: " + yPosLabel.getText().toString()
-                        + ", z: " + zPosLabel.getText().toString();
-                //btAccesor.writeMessage(message.getBytes());
-                instructions.add(message);
+                enqueueInputs(instructions);
                 return true;
             }
         });
@@ -496,43 +482,29 @@ public class ControlPanelScreen implements Screen {
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
 
-                if (rgbCheckbox.isChecked())
-                {
-                    enqueueRGBMessage();
+                lampData.setLampCoordiantes(Integer.valueOf(xPosLabel.getText().toString()),
+                        Integer.valueOf(yPosLabel.getText().toString()),
+                        Integer.valueOf(zPosLabel.getText().toString()));
 
-                }else
-                {
-                    messageQueue.enqueue(Message.getRedMessage((byte) 0));
-                    messageQueue.enqueue(Message.getGreenMessage((byte)0));
-                    messageQueue.enqueue(Message.getBlueMessage((byte)0));
-                }
-                if (spotlightCheckbox.isChecked())
-                {
-                    messageQueue.enqueue(Message.getSpotlightMessage(
-                            (byte)((int) (intensitySlider.getValue()) & 0xFF)
-                    ));
-                }
                 messageQueue.enqueue(Message.getBatteryMessage());
-
+                enqueueInputs(messageQueue);
                 messageQueue.enqueue(Message.getUpdateMessage());
                 messageQueue.start();
                 messageTransmitter.transmit(messageQueue.decueue());
+                sendButton.setVisible(false);
                 return true;
             }
         });
         sendButton.setVisible(false);
 
-        colorPickButton = new ColorPickButton();
+        colorPickButton = new ColorPickButton(skin);
         colorPickButton.setPosition(Constants.COLORPICK_X*V_WIDTH,
                 Constants.COLORPICK_Y*V_HEIGHT);
         colorPickButton.setColor(Constants.COLORPICK_DEFAULT_COLOR);
-        colorPickButton.setSize(Constants.COLORPICK_WIDTH*V_WIDTH,
-                Constants.COLORPICK_HEIGHT*V_HEIGHT);
         colorPickButton.setVisible(false);
         colorPickButton.addListener(new InputListener() {
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
-                isInColorPickingMode = true;
                 stages.clear();
                 stages.add(colorPickStage);
                 Gdx.input.setInputProcessor(colorPickStage);
@@ -540,23 +512,25 @@ public class ControlPanelScreen implements Screen {
             }
         });
 
-        intensitySlider = new Slider(4,10,0.2f,false,skin, /*"intensity"*/"height");
+        intensitySlider = new Slider(4,10,0.2f,false,skin, "intensity");
         intensitySlider.setWidth(Constants.INTENSITY_SLIDER_WIDTH*V_WIDTH);
         intensitySlider.setPosition(Constants.INTENSITY_SLIDER_X*V_WIDTH,
                 Constants.INTENSITY_SLIDER_Y*V_HEIGHT);
         intensitySlider.setVisible(false);
 
-        heightSlider = new Slider(0,lampData.getMaxHeight(),.2f, true, skin, "height");
+        heightSlider = new Slider(0,lampData.getH(),.2f, true, skin, "height");
         heightSlider.setHeight(Constants.HEIGHT_SLIDER_HEIGHT*V_HEIGHT);
         heightSlider.setPosition(Constants.HEIGHT_SLIDER_X*V_WIDTH,
                 Constants.HEIGHT_SLIDER_Y*V_HEIGHT);
         heightSlider.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                lampData.setZ(heightSlider.getValue());
-                String newZText = Float.toString(heightSlider.getValue());
-                if( newZText.length()>4) newZText = newZText.substring(0,4);
+                lampData.setZ((int) heightSlider.getValue());
+                String newZText = Integer.toString(lampData.getZ());
                 zPosLabel.setText( newZText);
+                zPosLabel.setPosition(heightSlider.getX()- 5*zPosLabel.getWidth(),
+                        heightSlider.getY()+
+                                heightSlider.getVisualPercent()*heightSlider.getHeight());
             }
         });
 
@@ -576,8 +550,30 @@ public class ControlPanelScreen implements Screen {
 
 
     }
+    void setXYPosLabels() {
+        String newXText = Integer.toString(lampData.getX());
+        xPosLabel.setText(newXText);
+        xPosLabel.setPosition(xyChooser.getLampX() - xPosLabel.getWidth(),
+                xyChooser.getY() + xyChooser.getHeight() );
+        String newYText = Integer.toString(lampData.getY());
+        yPosLabel.setText(newYText);
+        yPosLabel.setPosition(xyChooser.getX() - 3*yPosLabel.getWidth(),
+                xyChooser.getLampY());
+    }
+
 
     private void populateJoypadStage(){
+        coordinateAxis = new CoordinateAxis();
+        coordinateAxis.setPosition(250,700);
+        coordinateAxis.setCoordinatesXY(1, 0.5f);
+        joypadStage.addActor(coordinateAxis);
+
+        TextureRegion colorPickRegion = skin.getRegion("colorpick-bg");
+        colorIndicatorImage = new Image(colorPickRegion);
+        colorIndicatorImage.setPosition(.63f*V_WIDTH, 0.55f*V_HEIGHT);
+        colorIndicatorImage.setColor(0,0,0,1);
+
+
         joystick = new JoyStick(skin);
         joystick.setPosition(V_WIDTH*.2f, V_HEIGHT*.25f);
         joystick.addListener(new InputListener(){
@@ -598,11 +594,21 @@ public class ControlPanelScreen implements Screen {
             public void touchDragged(InputEvent event, float x, float y, int pointer) {
                 super.touchDragged(event, x, y, pointer);
                 joystick.setKnobPos(x,y);
+                float yValue = (y-joystick.getHeight()/2)/ (joystick.getHeight()/2);
+                if (yValue>1)yValue=1;
+                if (yValue<-1)yValue=-1;
+                float xValue = (x-joystick.getWidth()/2)/ (joystick.getWidth()/2);
+                if (xValue>1)xValue=1;
+                if (xValue<-1)xValue=-1;
+                coordinateAxis.setCoordinatesXY(xValue, yValue);
+
+                Color tempy = colorIndicatorImage.getColor();
+                colorIndicatorImage.setColor((xValue+1)/2,(yValue+1)/2, tempy.b, tempy.a);
             }
         });
 
         joyStickY = new JoyStickY(skin);
-        joyStickY.setPosition(.7f*V_WIDTH,.25f*V_HEIGHT);
+        joyStickY.setPosition(.74f*V_WIDTH,.25f*V_HEIGHT);
         joyStickY.addListener(new InputListener(){
 
             @Override
@@ -621,35 +627,148 @@ public class ControlPanelScreen implements Screen {
             public void touchDragged(InputEvent event, float x, float y, int pointer) {
                 super.touchDragged(event, x, y, pointer);
                 joyStickY.setKnobPos(y);
-            }
-        });
+                float zValue = (y-joyStickY.getHeight()/2)/ (joyStickY.getHeight()/2);
+                if (zValue>1)zValue=1;
+                if (zValue<-1)zValue=-1;
+                coordinateAxis.setCoordinatesZ(zValue);
 
-        upButton = new TextButton("up",skin, "device");
-        upButton.setPosition(V_WIDTH*.6f,V_HEIGHT*.6f);
-        upButton.addListener(new ClickListener(){
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                messageQueue.enqueue(Message.getZMessage(2));
-                messageQueue.start();
-                messageTransmitter.transmit(messageQueue.decueue());
-            }
-        });
-
-        downButton = new TextButton("down",skin, "device");
-        downButton.setPosition(V_WIDTH*.6f,V_HEIGHT*.55f);
-        downButton.addListener(new ClickListener(){
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                messageQueue.enqueue(Message.getZMessage(1));
-                messageQueue.start();
-                messageTransmitter.transmit(messageQueue.decueue());
+                Color tempy = colorIndicatorImage.getColor();
+                colorIndicatorImage.setColor(tempy.r,tempy.g, (zValue+1)/2, tempy.a);
             }
         });
 
         joypadStage.addActor(joystick);
         joypadStage.addActor(joyStickY);
-        joypadStage.addActor(upButton);
-        joypadStage.addActor(downButton);
+        joypadStage.addActor(colorIndicatorImage);
+
+        Button m1AUpButton = new TextButton("up", skin);
+        m1AUpButton.setPosition(0.2f * V_WIDTH, .1f * V_HEIGHT);
+        m1AUpButton.setWidth(0.15f*V_WIDTH);
+        m1AUpButton.addListener(new ClickListener() {
+
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                super.clicked(event, x, y);
+                messageQueue.enqueue(Message.getCurrentValueM1AMessage(20));
+                messageQueue.enqueue(Message.getSetValueM1AMessage(10));
+                messageQueue.enqueue(Message.getUpdateMessage());
+                messageQueue.start();
+                messageTransmitter.transmit(messageQueue.decueue());
+            }
+        });
+
+        Button m1ADownButton = new TextButton("down", skin);
+        m1ADownButton.setPosition(0.2f * V_WIDTH, .05f * V_HEIGHT);
+        m1ADownButton.addListener(new ClickListener() {
+
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                super.clicked(event, x, y);
+                messageQueue.enqueue(Message.getCurrentValueM1AMessage(10));
+                messageQueue.enqueue(Message.getSetValueM1AMessage(20));
+                messageQueue.enqueue(Message.getUpdateMessage());
+                messageQueue.start();
+                messageTransmitter.transmit(messageQueue.decueue());
+            }
+        });
+        joypadStage.addActor(m1AUpButton);
+        joypadStage.addActor(m1ADownButton);
+
+        Button m1BUpButton = new TextButton("up", skin);
+        m1BUpButton.setPosition(0.4f * V_WIDTH, .1f * V_HEIGHT);
+        m1BUpButton.addListener(new ClickListener() {
+
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                super.clicked(event, x, y);
+                messageQueue.enqueue(Message.getCurrentValueM1BMessage(20));
+                messageQueue.enqueue(Message.getSetValueM1BMessage(10));
+                messageQueue.enqueue(Message.getUpdateMessage());
+                messageQueue.start();
+                messageTransmitter.transmit(messageQueue.decueue());
+            }
+        });
+
+        Button m1BDownButton = new TextButton("down", skin);
+        m1BDownButton.setPosition(0.4f * V_WIDTH, .05f * V_HEIGHT);
+        m1BDownButton.addListener(new ClickListener() {
+
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                super.clicked(event, x, y);
+                messageQueue.enqueue(Message.getCurrentValueM1BMessage(10));
+                messageQueue.enqueue(Message.getSetValueM1BMessage(20));
+                messageQueue.enqueue(Message.getUpdateMessage());
+                messageQueue.start();
+                messageTransmitter.transmit(messageQueue.decueue());
+            }
+        });
+        joypadStage.addActor(m1BUpButton);
+        joypadStage.addActor(m1BDownButton);
+
+        Button m2AUpButton = new TextButton("up", skin);
+        m2AUpButton.setPosition(0.6f * V_WIDTH, .1f * V_HEIGHT);
+        m2AUpButton.addListener(new ClickListener() {
+
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                super.clicked(event, x, y);
+                messageQueue.enqueue(Message.getCurrentValueM2AMessage(20));
+                messageQueue.enqueue(Message.getSetValueM2AMessage(10));
+                messageQueue.enqueue(Message.getUpdateMessage());
+                messageQueue.start();
+                messageTransmitter.transmit(messageQueue.decueue());
+            }
+        });
+
+        Button m2ADownButton = new TextButton("down", skin);
+        m2ADownButton.setPosition(0.6f * V_WIDTH, .05f * V_HEIGHT);
+        m2ADownButton.addListener(new ClickListener() {
+
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                super.clicked(event, x, y);
+                messageQueue.enqueue(Message.getCurrentValueM2AMessage(10));
+                messageQueue.enqueue(Message.getSetValueM2AMessage(20));
+                messageQueue.enqueue(Message.getUpdateMessage());
+                messageQueue.start();
+                messageTransmitter.transmit(messageQueue.decueue());
+            }
+        });
+        joypadStage.addActor(m2AUpButton);
+        joypadStage.addActor(m2ADownButton);
+
+        Button m2BUpButton = new TextButton("up", skin);
+        m2BUpButton.setPosition(0.8f * V_WIDTH, .1f * V_HEIGHT);
+        m2BUpButton.addListener(new ClickListener() {
+
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                super.clicked(event, x, y);
+                messageQueue.enqueue(Message.getCurrentValueM2BMessage(20));
+                messageQueue.enqueue(Message.getSetValueM2BMessage(10));
+                messageQueue.enqueue(Message.getUpdateMessage());
+                messageQueue.start();
+                messageTransmitter.transmit(messageQueue.decueue());
+            }
+        });
+
+        Button m2BDownButton = new TextButton("down", skin);
+        m2BDownButton.setPosition(0.8f * V_WIDTH, .05f * V_HEIGHT);
+        m2BDownButton.addListener(new ClickListener() {
+
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                super.clicked(event, x, y);
+                messageQueue.enqueue(Message.getCurrentValueM2BMessage(10));
+                messageQueue.enqueue(Message.getSetValueM2BMessage(20));
+                messageQueue.enqueue(Message.getUpdateMessage());
+                messageQueue.start();
+                messageTransmitter.transmit(messageQueue.decueue());
+            }
+        });
+        joypadStage.addActor(m2BUpButton);
+        joypadStage.addActor(m2BDownButton);
     }
 
     private void populateInstructionListStage(){
@@ -669,6 +788,8 @@ public class ControlPanelScreen implements Screen {
         sendInstructionsButton.addListener(new ClickListener(){
             @Override
             public void clicked(InputEvent event, float x, float y) {
+                savedMessageQueue = messageQueue.getMessages();
+                messageQueue.setMessages(instructions.getMessages());
                 sendInstructionsButton.setVisible(false);
                 abortSendingInstructionsButton.setVisible(true);
             }
@@ -681,6 +802,10 @@ public class ControlPanelScreen implements Screen {
         abortSendingInstructionsButton.addListener(new ClickListener(){
             @Override
             public void clicked(InputEvent event, float x, float y) {
+                messageQueue.stop();
+                instructions.setMessages(messageQueue.getMessages());
+                instructions.setMessages(savedMessageQueue);
+                savedMessageQueue.clear();
                 abortSendingInstructionsButton.setVisible(false);
                 sendInstructionsButton.setVisible(true);
             }
@@ -697,15 +822,12 @@ public class ControlPanelScreen implements Screen {
         Table table = new Table();
         float textFieldWidth = 70;
 
-        
-
         Label calibraitonHeadline = new Label("calibration", skin, "pos");
         calibraitonHeadline.setPosition((V_WIDTH-calibraitonHeadline.getWidth())/2,V_HEIGHT*.7f);
         //settingsStage.addActor(calibraitonHeadline);
 
-        Label calibrationInstructions = new Label("Set actual \nrope lengths,\n" +
-                "a and h \nin cm.",skin);
-        calibrationInstructions.setPosition(V_WIDTH*.58f, V_HEIGHT*.58f);
+        Label calibrationInstructions = new Label("Set real\n lengths\n in cm.",skin);
+        calibrationInstructions.setPosition(V_WIDTH*.59f, V_HEIGHT*.58f);
         settingsStage.addActor(calibrationInstructions);
 
         Image topViewImage = new Image(skin.getRegion("topview-dimen"));
@@ -713,14 +835,14 @@ public class ControlPanelScreen implements Screen {
         settingsStage.addActor(topViewImage);
 
         Image sideViewImage = new Image(skin.getRegion("sideview-dimen"));
-        sideViewImage.setPosition(V_WIDTH*.55f,V_HEIGHT*.25f);
+        sideViewImage.setPosition(V_WIDTH * .55f, V_HEIGHT * .25f);
         settingsStage.addActor(sideViewImage);
 
 
         Label heightLabel = new Label("h=    cm", skin);
         heightLabel.setPosition(V_WIDTH*.63f, V_HEIGHT*.46f);
         settingsStage.addActor(heightLabel);
-        final TextField heigthTextField = new CustomTextField("123", skin);
+        final TextField heigthTextField = new CustomTextField(Integer.toString(lampData.getH()), skin);
         heigthTextField.setTextFieldFilter(new TextField.TextFieldFilter.DigitsOnlyFilter());
         heigthTextField.setPosition(V_WIDTH*.7f, V_HEIGHT*.46f);
         heigthTextField.setWidth(textFieldWidth);
@@ -729,12 +851,10 @@ public class ControlPanelScreen implements Screen {
         Label distanceLabel = new Label("a=    cm", skin);
         distanceLabel.setPosition(V_WIDTH * .63f, V_HEIGHT * .51f);
         settingsStage.addActor(distanceLabel);
-        final TextField distanceTextField = new CustomTextField("123", skin);
+        final TextField distanceTextField = new CustomTextField(Integer.toString(lampData.getA()), skin);
         distanceTextField.setPosition(V_WIDTH * .7f, V_HEIGHT * .51f);
         distanceTextField.setWidth(textFieldWidth);
         settingsStage.addActor(distanceTextField);
-
-
 
         sidePicker = new SidePicker(skin);
 
@@ -744,76 +864,55 @@ public class ControlPanelScreen implements Screen {
          * measured ropelengths
          */
 
-        final TextField leftDownTextField = new CustomTextField("123",skin);
+        final TextField leftDownTextField = new CustomTextField(Integer.toString(lampData.getL1()),skin);
         leftDownTextField.setPosition(sidePicker.getX()+SidePicker.LDFX,
                 sidePicker.getY()+SidePicker.LDFY);
         leftDownTextField.setWidth(textFieldWidth);
-        leftDownTextField.setVisible(false);
         settingsStage.addActor(leftDownTextField);
 
-        final TextField leftUpTextField = new CustomTextField("456",skin);
+        final TextField leftUpTextField = new CustomTextField(Integer.toString(lampData.getL4()),skin);
         leftUpTextField.setPosition(sidePicker.getX()+SidePicker.LTFX,
                 sidePicker.getY()+SidePicker.LTFY);
         leftUpTextField.setWidth(textFieldWidth);
-        leftUpTextField.setVisible(false);
         settingsStage.addActor(leftUpTextField);
 
-        final TextField rightDownTextField = new CustomTextField("789",skin);
+        final TextField rightDownTextField = new CustomTextField(Integer.toString(lampData.getL2()),skin);
         rightDownTextField.setPosition(sidePicker.getX()+SidePicker.RDFX,
                 sidePicker.getY()+SidePicker.RDFY);
         rightDownTextField.setWidth(textFieldWidth);
-        rightDownTextField.setVisible(false);
         settingsStage.addActor(rightDownTextField);
 
-        final TextField rightUpTextField = new CustomTextField("876",skin);
+        final TextField rightUpTextField = new CustomTextField(Integer.toString(lampData.getL3()),skin);
         rightUpTextField.setPosition(sidePicker.getX()+SidePicker.RTFX,
                 sidePicker.getY()+SidePicker.RTFY);
         rightUpTextField.setWidth(textFieldWidth);
-        rightUpTextField.setVisible(false);
         settingsStage.addActor(rightUpTextField);
 
-        /**
-         * some callback functions
-         */
-        SidePicker.SideCallbacks sideCallbacks = new SidePicker.SideCallbacks() {
-            @Override
-            public void leftDown(boolean enable) {
-                leftDownTextField.setVisible(enable);
-            }
 
-            @Override
-            public void rightDown(boolean enable) {
-                rightDownTextField.setVisible(enable);
-            }
 
-            @Override
-            public void leftUp(boolean enable) {
-                leftUpTextField.setVisible(enable);
-            }
-
-            @Override
-            public void rightUp(boolean enable) {
-                rightUpTextField.setVisible(enable);
-            }
-        };
-
-        sidePicker.registerCallbacks(sideCallbacks);
-
-        TextButton submitButton = new TextButton("calibrate", skin, "header");
+        Button submitButton = new Button(skin, "calibrate");
+        //TextButton submitButton = new TextButton("calibrate", skin, "header");
         submitButton.setPosition((V_WIDTH-submitButton.getWidth())/2, V_HEIGHT*.06f);
         submitButton.addListener(new ClickListener(){
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                messageQueue.enqueue(Message.getAMessage(Integer.valueOf(distanceTextField.getText())));
-                messageQueue.enqueue(Message.getHMessage(Integer.valueOf(heigthTextField.getText())));
-                messageQueue.enqueue(Message.getIMessage(Integer.valueOf(leftDownTextField.getText())));
-                messageQueue.enqueue(Message.getJMessage(Integer.valueOf(rightDownTextField.getText())));
-                messageQueue.enqueue(Message.getKMessage(Integer.valueOf(rightUpTextField.getText())));
-                messageQueue.enqueue(Message.getLMessage(Integer.valueOf(leftUpTextField.getText())));
-                messageQueue.enqueue(Message.getCMessage());
+                int a = Integer.valueOf(distanceTextField.getText());
+                if ( a >1 )
+                    lampData.setA(a);
+                int h = Integer.valueOf(heigthTextField.getText());
+                if ( h > 50 )
+                    lampData.setH(h);
+                lampData.setL1(Integer.valueOf(leftDownTextField.getText()));
+                lampData.setL2(Integer.valueOf(rightDownTextField.getText()));
+                lampData.setL3(Integer.valueOf(rightUpTextField.getText()));
+                lampData.setL4(Integer.valueOf(leftUpTextField.getText()));
+                lampData.setLampRopeTickCounts();
+                LampDataManager.SaveLampData(lampData);
+                heightSlider.setRange(0,lampData.getH());
+                enqueueCurrentRopeTickCounts(messageQueue);
                 messageQueue.start();
-
-
+                messageTransmitter.transmit(messageQueue.decueue());
+                setStage(adjustStage);
             }
         });
 
@@ -822,6 +921,10 @@ public class ControlPanelScreen implements Screen {
     }
 
     private void populateColorPickStage(){
+        TextureRegion pickedColorTexture = skin.getRegion("colorpick-bg");
+        final Image pickedColorImage = new Image(pickedColorTexture);
+        pickedColorImage.setVisible(false);
+
         Texture colorPickTexture = new Texture(Gdx.files.internal("colormap.png"));
         final Pixmap colorPickPixmap = new Pixmap(Gdx.files.internal("colormap.png"));
         colorPickImage = new Image(colorPickTexture);
@@ -833,16 +936,22 @@ public class ControlPanelScreen implements Screen {
                         colorPickPixmap.getWidth()-(int)x,
                         colorPickPixmap.getHeight()-(int)y) );
                 colorPickButton.setColor(pickedColor);
-                pickedPosition.set(x,y);
-                isColorPicking = true;
+                pickedPosition.set(x-pickedColorImage.getWidth()/2,y+pickedColorImage.getWidth());
+
+               pickedColorImage.setVisible(true);
+                pickedColorImage.setColor(pickedColor);
+                pickedColorImage.setPosition(pickedPosition.x, pickedPosition.y);
                 return true;
             }
 
             @Override
             public void touchUp(InputEvent event, float x, float y, int pointer, int button) {
                 setStage(adjustStage);
-                isInColorPickingMode = false;
-                isColorPicking = false;
+                shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+                shapeRenderer.setColor(pickedColor);
+                shapeRenderer.rect(pickedPosition.x-50,pickedPosition.y+50, 100,100);
+                shapeRenderer.end();
+                pickedColorImage.setVisible(false);
             }
 
             @Override
@@ -851,9 +960,12 @@ public class ControlPanelScreen implements Screen {
                         (int) x,
                         colorPickPixmap.getHeight() - (int) y));
                 colorPickButton.setColor(pickedColor);
-                pickedPosition.set(x,y);
+                pickedPosition.set(x-pickedColorImage.getWidth()/2,y+pickedColorImage.getWidth());
 
-                enqueueRGBMessage();
+                pickedColorImage.setColor(pickedColor);
+                pickedColorImage.setPosition(pickedPosition.x, pickedPosition.y);
+
+                MessageQueueGenerator.enqueueRGBMessage(messageQueue, pickedColor);
                 messageQueue.enqueue(Message.getUpdateMessage());
                 messageQueue.start();
                 if (messageTransmitter.isSending())
@@ -869,8 +981,10 @@ public class ControlPanelScreen implements Screen {
                 Constants.COLORPICK_CAPTION_Y*V_HEIGHT
         );
 
+
         colorPickStage.addActor(colorPickImage);
         colorPickStage.addActor(colorPickCaptionLabel);
+        colorPickStage.addActor(pickedColorImage);
     }
 
     private void populateDeviceSelectStage(){
@@ -887,14 +1001,13 @@ public class ControlPanelScreen implements Screen {
                 return true;
             }
         });
-
         btDeviceSelectStage.addActor(scanForDeviceButton);
-
     }
 
 
 
     private void setStage(Stage stage){
+        stage.addAction(Actions.alpha(0));
         stages.clear();
         inputMultiplexer.clear();
         stages.add(headerStage);
@@ -902,14 +1015,20 @@ public class ControlPanelScreen implements Screen {
         stages.add(stage);
         inputMultiplexer.addProcessor(stage);
         Gdx.input.setInputProcessor(inputMultiplexer);
+        stage.addAction(Actions.fadeIn(0.3f, Interpolation.fade));
     }
+
 
     private void updateInstructionList(){
         StringBuilder builder = new StringBuilder();
-        for (int i = 0 ; i< instructions.size; i++){
-            builder.append(Integer.toString(i+1)+": ");
-            builder.append(instructions.get(i)+"\n");
+        Queue<Message> tempQueue = instructions.getMessages();
+
+        while(!tempQueue.isEmpty())
+        {
+            Message message = tempQueue.remove();
+            builder.append(message.toString());
         }
+
         String newText = builder.toString();
         instructionListLabel.setText(newText);
     }
@@ -928,11 +1047,18 @@ public class ControlPanelScreen implements Screen {
     void drawFooterBackground(ShapeRenderer shapeRenderer){
         shapeRenderer.setColor(Constants.FOOTER_COLOR);
         shapeRenderer.rect(0,0,V_WIDTH,V_HEIGHT* Constants.FOOTER_HEIGHT);
+        shapeRenderer.setColor(Constants.BORDER_COLOR);
+        shapeRenderer.rect(0,V_HEIGHT*Constants.FOOTER_HEIGHT,
+                V_WIDTH,V_HEIGHT*Constants.BORDER_THICKNESS);
     }
     void drawHeaderBackground(ShapeRenderer shapeRenderer){
         shapeRenderer.setColor(Constants.HEADER_COLOR);
         shapeRenderer.rect(0,V_HEIGHT*(1-Constants.HEADER_HEIGHT),
                 V_WIDTH,V_HEIGHT*Constants.HEADER_HEIGHT);
+
+        shapeRenderer.setColor(Constants.BORDER_COLOR);
+        shapeRenderer.rect(0,V_HEIGHT*(1-Constants.HEADER_HEIGHT-Constants.BORDER_THICKNESS),
+                V_WIDTH,V_HEIGHT*Constants.BORDER_THICKNESS);
        /* shapeRenderer.setColor(.9f,.8f,.8f,1);
         shapeRenderer.rect(0,V_HEIGHT*(1-Constants.HEADER_HEIGHT),
                 V_WIDTH,V_HEIGHT*Constants.HEADER_HEIGHT/2);*/
@@ -946,21 +1072,30 @@ public class ControlPanelScreen implements Screen {
         shapeRenderer.end();
     }
 
-    private void enqueueRGBMessage()
-    {
-        messageQueue.enqueue(Message.getRedMessage(
-                (byte)((int)(pickedColor.r*255)&0xFF)
-        ));
-        messageQueue.enqueue(Message.getGreenMessage(
-                (byte) ((int) (pickedColor.g * 255) & 0xFF)
-        ));
-        messageQueue.enqueue(Message.getBlueMessage(
-                (byte) ((int) (pickedColor.b * 255) & 0xFF)
-        ));
+    private void enqueueInputs(MessageQueue queue) {
+        if (rgbCheckbox.isChecked()) {
+            MessageQueueGenerator.enqueueRGBMessage(queue, pickedColor);
+        } else {
+            queue.enqueue(Message.getRedMessage((byte) 0));
+            queue.enqueue(Message.getGreenMessage((byte) 0));
+            queue.enqueue(Message.getBlueMessage((byte) 0));
+        }
+        if (spotlightCheckbox.isChecked()) {
+            queue.enqueue(Message.getSpotlightMessage(
+                    (byte) ((int) (intensitySlider.getValue()) & 0xFF)
+            ));
+        }
+        MessageQueueGenerator.enqueueRopeMessages(messageQueue, lampData);
     }
 
 
-
+    private void enqueueCurrentRopeTickCounts(MessageQueue messageQueue)
+    {
+        messageQueue.enqueue(Message.getCurrentValueM1AMessage(lampData.getRopeL1()));
+        messageQueue.enqueue(Message.getCurrentValueM1BMessage(lampData.getRopeL2()));
+        messageQueue.enqueue(Message.getCurrentValueM2AMessage(lampData.getRopeL3()));
+        messageQueue.enqueue(Message.getCurrentValueM2BMessage(lampData.getRopeL4()));
+    }
 
 
     /**
@@ -1010,8 +1145,6 @@ public class ControlPanelScreen implements Screen {
             });
             devices.add(newDeviceButton);
             btDeviceSelectStage.addActor(newDeviceButton);
-
-
         }
 
         @Override
@@ -1020,6 +1153,9 @@ public class ControlPanelScreen implements Screen {
             batteryIndicator.setVisible(true);
             sendButton.setVisible(true);
 
+            //enqueueCurrentRopeTickCounts(messageQueue);
+            //messageQueue.start();
+            //messageTransmitter.transmit(messageQueue.decueue());
 
         }
 

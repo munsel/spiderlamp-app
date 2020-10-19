@@ -51,13 +51,24 @@ public class SendedState implements TransmitState {
         //Gdx.app.log(TAG, "id  is: "+(char)message.getId());
 
         byte idindex = 0;
+        while(message.getId() != answer[idindex]){
+            if (answer[idindex]==0) {
+                transmitter.setState(new ErrorState(transmitter, message, acessor));
+                return;
+            }
+            idindex++;
+        }
 
-        if (message.getId() != answer[idindex])
+        if ('\n' != answer[idindex+3])
         {
             transmitter.setState(new ErrorState(transmitter, message,acessor));
+            return;
         } else // when message was correct
         {
             transmitter.resetCounter();
+            if (answer[idindex] == Message.UPDATE_ID){
+                transmitter.setState(new WaitForSecondUpdateState(transmitter, acessor));
+            }
             transmitter.setState(new IdleState(transmitter, acessor));
             transmitter.done(new Message(answer[idindex], answer[idindex+1], answer[idindex+2]));
         }

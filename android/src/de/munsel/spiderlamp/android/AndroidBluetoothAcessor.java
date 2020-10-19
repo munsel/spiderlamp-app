@@ -12,9 +12,7 @@ import android.content.IntentFilter;
 import de.munsel.spiderlamp.bluetooth.BluetoothAcessor;
 import de.munsel.spiderlamp.bluetooth.BtMessageHandler;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.Set;
 import java.util.UUID;
 
@@ -94,7 +92,6 @@ public class AndroidBluetoothAcessor implements BluetoothAcessor {
             mConnectThread.cancel();
             mConnectThread = null;
         }
-
         // Cancel any thread currently running a connection
         if (mConnectedThread != null) {
             mConnectedThread.cancel();
@@ -529,17 +526,23 @@ public class AndroidBluetoothAcessor implements BluetoothAcessor {
             //Log.i(TAG, "BEGIN mConnectedThread");
             byte[] buffer = new byte[1024];
             int bytes;
+            BufferedInputStream bufferedInputStream = new BufferedInputStream(mmInStream);
+
 
             // Keep listening to the InputStream while connected
             while (true) {
                 try {
                     // Read from the InputStream
-                    bytes = mmInStream.read(buffer);
+                    //bytes = mmInStream.read(buffer);
+                    if (bufferedInputStream.available()>=4) {
+                        bytes = bufferedInputStream.read(buffer);
+                        mHandler.receiveMessage(buffer);
+                    }
 
 
                     // Send the obtained bytes to the UI Activity
                     //mHandler.receiveMessage(String.toString(buffer));
-                    mHandler.receiveMessage(buffer);
+
                     //mHandler.obtainMessage(Constants.MESSAGE_READ, bytes, -1, buffer)
                     //     .sendToTarget();
                 } catch (IOException e) {
@@ -560,10 +563,6 @@ public class AndroidBluetoothAcessor implements BluetoothAcessor {
         public void write(byte[] buffer) {
             try {
                 mmOutStream.write(buffer);
-
-                // Share the sent message back to the UI Activity
-
-                //maybee?!
 
             } catch (IOException e) {
                 //Log.e(TAG, "Exception during write", e);

@@ -33,7 +33,7 @@ public class ErrorState implements TransmitState {
         } else
         {
             transmitter.setState(new IdleState(transmitter, acessor));
-            transmitter.done(Message.getErrorMessage());
+            //transmitter.done(Message.getErrorMessage());
         }
     }
 

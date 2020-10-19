@@ -40,6 +40,8 @@ public class MessageQueue {
         return null;
     }
 
+    public Queue<Message> getMessages(){return messages;}
+    public void setMessages(Queue<Message> msgs){this.messages = msgs;}
     public boolean isRunning(){return isRunning;}
 
     public void start()
