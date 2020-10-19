@@ -1,0 +1,208 @@
+
+spinneUi.png
+format: RGBA8888
+filter: Nearest,Nearest
+repeat: none
+sidepicker
+  rotate: false
+  xy: 1, 613
+  size: 410, 410
+  orig: 410, 410
+  offset: 0, 0
+  index: -1
+xy-picker
+  rotate: false
+  xy: 1, 211
+  size: 397, 400
+  orig: 397, 400
+  offset: 0, 0
+  index: -1
+topview-dimen
+  rotate: false
+  xy: 413, 775
+  size: 246, 248
+  orig: 246, 248
+  offset: 0, 0
+  index: -1
+joystick-background
+  rotate: false
+  xy: 661, 787
+  size: 236, 236
+  orig: 236, 236
+  offset: 0, 0
+  index: -1
+slider_z
+  rotate: false
+  xy: 400, 110
+  size: 18, 501
+  orig: 18, 501
+  offset: 0, 0
+  index: -1
+calibrate_button
+  rotate: false
+  xy: 1, 147
+  size: 287, 62
+  orig: 287, 62
+  offset: 0, 0
+  index: -1
+joystick-y-background
+  rotate: false
+  xy: 899, 784
+  size: 69, 239
+  orig: 69, 239
+  offset: 0, 0
+  index: -1
+sideview-dimen
+  rotate: false
+  xy: 420, 545
+  size: 228, 228
+  orig: 228, 228
+  offset: 0, 0
+  index: -1
+send
+  rotate: false
+  xy: 1, 83
+  size: 195, 62
+  orig: 195, 62
+  offset: 0, 0
+  index: -1
+add
+  rotate: false
+  xy: 420, 481
+  size: 171, 62
+  orig: 171, 62
+  offset: 0, 0
+  index: -1
+colorpick-bg
+  rotate: false
+  xy: 420, 391
+  size: 101, 88
+  orig: 101, 88
+  offset: 0, 0
+  index: -1
+colorpick-fg
+  rotate: false
+  xy: 420, 301
+  size: 101, 88
+  orig: 101, 88
+  offset: 0, 0
+  index: -1
+instructions
+  rotate: false
+  xy: 420, 214
+  size: 85, 85
+  orig: 85, 85
+  offset: 0, 0
+  index: -1
+joystick-tab
+  rotate: false
+  xy: 420, 127
+  size: 85, 85
+  orig: 85, 85
+  offset: 0, 0
+  index: -1
+bt_white
+  rotate: false
+  xy: 523, 394
+  size: 85, 85
+  orig: 85, 85
+  offset: 0, 0
+  index: -1
+settings
+  rotate: false
+  xy: 523, 307
+  size: 85, 85
+  orig: 85, 85
+  offset: 0, 0
+  index: -1
+coordinates
+  rotate: false
+  xy: 290, 124
+  size: 85, 85
+  orig: 85, 85
+  offset: 0, 0
+  index: -1
+bt_up
+  rotate: false
+  xy: 198, 60
+  size: 85, 85
+  orig: 85, 85
+  offset: 0, 0
+  index: -1
+battery-frame
+  rotate: false
+  xy: 1, 36
+  size: 100, 45
+  orig: 100, 45
+  offset: 0, 0
+  index: -1
+joystick-y-knob
+  rotate: false
+  xy: 1, 1
+  size: 70, 33
+  orig: 70, 33
+  offset: 0, 0
+  index: -1
+off
+  rotate: false
+  xy: 285, 37
+  size: 85, 85
+  orig: 85, 85
+  offset: 0, 0
+  index: -1
+slider-white
+  rotate: false
+  xy: 970, 907
+  size: 2, 116
+  orig: 2, 116
+  offset: 0, 0
+  index: -1
+knob-white
+  rotate: false
+  xy: 974, 951
+  size: 46, 72
+  orig: 46, 72
+  offset: 0, 0
+  index: -1
+xy-cursor
+  rotate: false
+  xy: 593, 487
+  size: 56, 56
+  orig: 56, 56
+  offset: 0, 0
+  index: -1
+battery-filling
+  rotate: false
+  xy: 661, 740
+  size: 100, 45
+  orig: 100, 45
+  offset: 0, 0
+  index: -1
+checkbox-unchecked
+  rotate: false
+  xy: 650, 675
+  size: 62, 63
+  orig: 62, 63
+  offset: 0, 0
+  index: -1
+checkbox-checked
+  rotate: false
+  xy: 650, 610
+  size: 62, 63
+  orig: 62, 63
+  offset: 0, 0
+  index: -1
+knob-black
+  rotate: false
+  xy: 650, 562
+  size: 59, 46
+  orig: 59, 46
+  offset: 0, 0
+  index: -1
+slider-black
+  rotate: false
+  xy: 763, 783
+  size: 95, 2
+  orig: 95, 2
+  offset: 0, 0
+  index: -1
